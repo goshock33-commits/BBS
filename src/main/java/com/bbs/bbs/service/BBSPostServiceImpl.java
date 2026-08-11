@@ -7,6 +7,8 @@ import com.bbs.bbs.Mapper.BBSPostMapper;
 import com.bbs.bbs.Mapper.BBSUserMapper;
 import com.bbs.bbs.bean.*;
 import com.bbs.bbs.common.Constants;
+import com.bbs.util.PageQueryUtil;
+import com.bbs.util.PageResult;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
@@ -215,6 +217,65 @@ public class BBSPostServiceImpl implements BBSPostService {
         Wrapper.eq(BBSPost::getIsDeleted, 0);
         Wrapper.orderByDesc(BBSPost::getCreateTime);
         return bbsPostMapper.selectList(Wrapper);
+    }
+
+    @Override
+    public PageResult getBBSPostPageForIndex(PageQueryUtil pageUtil) {
+        int pageNumber = pageUtil.getPage();
+        int pageSize = Math.min(pageUtil.getLimit(), 50);
+        LambdaQueryWrapper<BBSPost> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(BBSPost::getPostStatus, 1)
+                .eq(BBSPost::getIsDeleted, 0);
+
+        Object categoryId = pageUtil.get("categoryId");
+        if (categoryId != null) {
+            wrapper.eq(BBSPost::getPostCategoryId,
+                    Long.parseLong(categoryId.toString()));
+        }
+
+        Object keyword = pageUtil.get("keyword");
+        if (keyword != null && !keyword.toString().isBlank()) {
+            String value = keyword.toString().trim();
+            wrapper.and(w -> w.like(BBSPost::getPostTitle, value)
+                    .or().like(BBSPost::getPostContent, value));
+        }
+
+        Object period = pageUtil.get("period");
+        if ("week".equals(period)) {
+            wrapper.ge(BBSPost::getCreateTime,
+                    java.sql.Timestamp.valueOf(java.time.LocalDateTime.now().minusDays(7)));
+        } else if ("month".equals(period)) {
+            wrapper.ge(BBSPost::getCreateTime,
+                    java.sql.Timestamp.valueOf(java.time.LocalDateTime.now().minusDays(30)));
+        }
+
+        if ("views".equals(pageUtil.get("orderBy"))) {
+            wrapper.orderByDesc(BBSPost::getPostViews);
+        } else {
+            wrapper.orderByDesc(BBSPost::getCreateTime);
+        }
+
+        IPage<BBSPost> page = bbsPostMapper.selectPage(
+                new Page<>(pageNumber, pageSize), wrapper);
+        List<BBSPost> records = page.getRecords();
+        if (!records.isEmpty()) {
+            List<Long> userIds = records.stream()
+                    .map(BBSPost::getPublishUserId)
+                    .distinct()
+                    .toList();
+            Map<Long, BBSUser> users = bbsUserMapper.selectByIds(userIds).stream()
+                    .collect(Collectors.toMap(BBSUser::getUserId, user -> user));
+            records.forEach(post -> {
+                BBSUser user = users.get(post.getPublishUserId());
+                if (user != null) {
+                    post.setNickName(user.getNickName());
+                    post.setHeadImgUrl(user.getHeadImgUrl());
+                    post.setUser(user);
+                }
+            });
+        }
+        return new PageResult(records, Math.toIntExact(page.getTotal()),
+                pageSize, pageNumber);
     }
 }
 
