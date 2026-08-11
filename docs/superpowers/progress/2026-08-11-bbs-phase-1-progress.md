@@ -20,7 +20,7 @@
 
 - [x] Task 1: establish failing baseline and dependency set
 - [x] Task 2: repair homepage pagination with tests
-- [ ] Task 3: add environment-backed configuration and Flyway baseline
+- [ ] Task 3: add environment-backed configuration and Flyway baseline (integration verification pending Docker)
 - [ ] Task 4: introduce validated web contracts and uniform errors
 - [ ] Task 5: migrate account storage to BCrypt
 - [ ] Task 6: replace login interceptor with Spring Security
@@ -49,6 +49,14 @@
 - A proposed SQL-segment assertion failed because a pure Mockito test does not initialize MyBatis-Plus lambda metadata; it was removed instead of adding test-only production coupling.
 - Controller spec and quality review found no blocking issue. Independent reviewers could not be dispatched because the subagent entry point was unavailable.
 - Status: complete.
+
+### Task 3
+
+- RED test added: `FlywayMigrationTest.createsCoreTables`.
+- Configuration and migration files added; collection primary key uses existing entity-compatible `record_id`.
+- `mvn.cmd -DskipTests compile` and `mvn.cmd -DskipTests test-compile` both returned `BUILD SUCCESS`.
+- Integration test was attempted with a sanitized child-process PATH; it reached Testcontainers and failed because no valid Docker environment is installed. The original environment also contains malformed quoted PATH entries, which were isolated from the project.
+- Status: implementation complete, integration verification pending Docker; do not claim the migration has run successfully until the container test passes.
 
 ## Handoff notes
 
