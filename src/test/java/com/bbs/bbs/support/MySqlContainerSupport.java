@@ -8,8 +8,8 @@ public abstract class MySqlContainerSupport {
 
     static final MySQLContainer<?> MYSQL_CONTAINER = new MySQLContainer<>("mysql:8.4")
             .withDatabaseName("bbs")
-            .withUsername("root")
-            .withPassword("root");
+                    .withUsername("bbs")
+                    .withPassword("bbs");
 
     static {
         MYSQL_CONTAINER.start();
