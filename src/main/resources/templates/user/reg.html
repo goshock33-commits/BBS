@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{header::head-fragment('注册')}">
+</head>
+<body>
+
+<div th:replace="~{header::header-fragment}"></div>
+
+<div class="layui-container" style="padding-top: 30px;">
+  <div class="layui-row">
+    <div class="layui-col-md6 layui-col-md-offset3">
+
+      <form class="layui-form" id="regForm">
+        <div class="layui-form-item">
+          <label class="layui-form-label">邮箱</label>
+          <div class="layui-input-block">
+            <input type="text" name="loginName" lay-verify="required|email"
+                   placeholder="请输入邮箱" class="layui-input"/>
+          </div>
+        </div>
+
+        <div class="layui-form-item">
+          <label class="layui-form-label">昵称</label>
+          <div class="layui-input-block">
+            <input type="text" name="nickName" lay-verify="required"
+                   placeholder="请输入昵称" class="layui-input"/>
+          </div>
+        </div>
+
+        <div class="layui-form-item">
+          <label class="layui-form-label">密码</label>
+          <div class="layui-input-block">
+            <input type="password" name="password" lay-verify="required"
+                   placeholder="请输入密码" class="layui-input"/>
+          </div>
+        </div>
+        <!-- 验证码模块 -->
+        <div class="layui-form-item">
+          <label for="verifyCode" class="layui-form-label">验证码</label>
+          <div class="layui-input-inline">
+            <input type="text" id="verifyCode" name="verifyCode"
+                   required lay-verify="required"
+                   placeholder="请输入验证码"
+                   autocomplete="off" class="layui-input">
+          </div>
+          <div class="layui-form-mid">
+        <span>
+            <img data-tooltip="看不清楚？换一张"
+                 th:src="@{/common/captcha}"
+                 onclick="this.src='/common/captcha?d='+new Date()*1"
+                 alt="单击图片刷新！">
+        </span>
+          </div>
+        </div>
+
+        <div class="layui-form-item">
+          <div class="layui-input-block">
+            <button type="button" class="layui-btn" id="regBtn">注册</button>
+            <a href="/login" class="layui-btn layui-btn-primary">已有账号？去登录</a>
+          </div>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+
+<script>
+    layui.use(['form', 'layer'], function () {
+        var $ = layui.$;
+        var layer = layui.layer;
+
+        $('#regBtn').on('click', function () {
+            var data = {
+                loginName: $('input[name="loginName"]').val(),
+                nickName: $('input[name="nickName"]').val(),
+                password: $('input[name="password"]').val(),
+                verifyCode: $('input[name="verifyCode"]').val(),
+            };
+
+            $.ajax({
+                url: '/register',
+                type: 'POST',
+                data: data,
+                success: function (res) {
+                    if (res.resultCode === 200) {
+                        layer.msg('注册成功！即将跳转登录页', {icon: 1}, function () {
+                            window.location.href = '/login';
+                        });
+                    } else {
+                        layer.msg(res.message, {icon: 2});
+                    }
+                }
+            });
+        });
+    });
+</script>
+</body>
+</html>
