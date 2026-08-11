@@ -29,7 +29,14 @@
 
 ## Review log
 
-No implementation tasks completed yet.
+### Task 1
+
+- Baseline compiler reproduced the expected single source error: `BBSPostServiceImpl` does not implement `getBBSPostPageForIndex(PageQueryUtil)`.
+- Implementation commit: `df155e3 build: add baseline validation and security dependencies`.
+- First spec review: rejected because `MySqlContainerSupport` used `root/root` instead of the required `bbs/bbs` test credentials.
+- Spec correction commit: `e73cfb8 test: align baseline database credentials`.
+- Post-correction compiler result: expected single source error remains; dependency resolution succeeds.
+- Status: awaiting spec re-review and code-quality review before completion.
 
 ## Handoff notes
 
