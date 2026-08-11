@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CentOS 7 + Docker 命令速查表 | BBS 实战</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17212b;
+      --muted: #5d6873;
+      --paper: #ffffff;
+      --canvas: #eef1f3;
+      --line: #cfd6dc;
+      --soft: #f5f7f8;
+      --centos: #9d2235;
+      --docker: #006d77;
+      --read: #176b48;
+      --change: #8a5b00;
+      --delete: #a1262f;
+      --root: #4254a3;
+      --code: #111820;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font: 15px/1.65 system-ui, "Microsoft YaHei", "Noto Sans SC", sans-serif;
+      letter-spacing: 0;
+    }
+    a { color: #075f73; text-underline-offset: 3px; }
+    a:focus-visible, summary:focus-visible { outline: 3px solid #f0b429; outline-offset: 3px; }
+    code, pre { font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace; }
+    .shell {
+      display: grid;
+      min-height: 100vh;
+      grid-template-columns: 250px minmax(0, 1fr);
+    }
+    nav {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 24px 18px;
+      background: #17212b;
+      color: #eef5f6;
+      border-right: 5px solid var(--centos);
+    }
+    .nav-title { margin: 0 0 4px; font-size: 19px; font-weight: 760; }
+    .nav-sub { margin: 0 0 22px; color: #b9c5cc; font-size: 12px; }
+    nav a {
+      display: block;
+      padding: 7px 8px;
+      color: #dfe8eb;
+      text-decoration: none;
+      border-left: 2px solid transparent;
+    }
+    nav a:hover { background: #26333d; border-left-color: #4bb4bf; }
+    nav .nav-group { margin: 18px 8px 6px; color: #7ed3da; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    main { width: min(1120px, 100%); background: var(--paper); }
+    header { padding: 52px clamp(24px, 6vw, 76px) 36px; border-bottom: 1px solid var(--line); }
+    .eyebrow { margin: 0 0 9px; color: var(--centos); font-weight: 800; }
+    h1 { margin: 0; max-width: 850px; font-size: clamp(30px, 4vw, 50px); line-height: 1.12; letter-spacing: 0; }
+    .lead { max-width: 760px; margin: 18px 0 0; color: var(--muted); font-size: 18px; }
+    .version { margin-top: 18px; color: var(--muted); font-size: 13px; }
+    section { padding: 42px clamp(24px, 6vw, 76px); border-bottom: 1px solid var(--line); scroll-margin-top: 18px; }
+    section:nth-of-type(even) { background: var(--soft); }
+    h2 { margin: 0 0 10px; font-size: 27px; line-height: 1.25; letter-spacing: 0; }
+    h3 { margin: 28px 0 9px; font-size: 18px; letter-spacing: 0; }
+    p { max-width: 80ch; }
+    .section-lead { margin-top: 0; color: var(--muted); }
+    .prompt {
+      margin: 24px 0;
+      padding: 24px;
+      overflow-x: auto;
+      background: var(--code);
+      color: #edf6f7;
+      border-left: 6px solid #44b5bf;
+    }
+    .prompt-line { white-space: nowrap; font: 16px/1.6 "Cascadia Code", Consolas, monospace; }
+    .p-user { color: #80d4a7; }
+    .p-path { color: #84c7f1; }
+    .p-command { color: #fff; font-weight: 800; }
+    .p-option { color: #f4c96b; }
+    .p-arg { color: #f19ca7; }
+    .anatomy { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+    .anatomy div { padding: 16px; background: var(--paper); }
+    .anatomy b { display: block; margin-bottom: 3px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0; }
+    .badge { display: inline-flex; align-items: center; min-height: 27px; padding: 3px 8px; border: 1px solid currentColor; border-radius: 3px; font-size: 12px; font-weight: 760; }
+    .read { color: var(--read); background: #eef8f2; }
+    .change { color: var(--change); background: #fff8e7; }
+    .delete { color: var(--delete); background: #fff1f2; }
+    .root { color: var(--root); background: #f1f3ff; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); }
+    table { width: 100%; min-width: 760px; border-collapse: collapse; background: var(--paper); }
+    th, td { padding: 12px 13px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+    th { background: #e7ecef; font-size: 13px; }
+    tr:last-child td { border-bottom: 0; }
+    td:first-child { width: 27%; }
+    td code { color: #092f3c; font-weight: 700; overflow-wrap: anywhere; }
+    .risk { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
+    pre {
+      margin: 14px 0;
+      padding: 16px;
+      overflow-x: auto;
+      background: var(--code);
+      color: #edf6f7;
+      border: 1px solid #26343f;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .note, .warning, .success {
+      margin: 18px 0;
+      padding: 14px 17px;
+      border-left: 4px solid var(--docker);
+      background: #edf7f8;
+    }
+    .warning { border-left-color: var(--delete); background: #fff2f3; }
+    .success { border-left-color: var(--read); background: #eef8f2; }
+    .model { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 20px 0; }
+    .model > div { min-height: 132px; padding: 15px; border: 1px solid var(--line); background: var(--paper); }
+    .model strong { display: block; margin-bottom: 6px; color: var(--docker); }
+    .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 22px 0; }
+    .flow span { padding: 9px 11px; border: 1px solid var(--line); background: var(--paper); font-weight: 700; }
+    .flow i { color: var(--centos); font-style: normal; font-weight: 900; }
+    details { margin: 10px 0; border-top: 1px solid var(--line); }
+    summary { padding: 13px 0; cursor: pointer; font-weight: 760; }
+    footer { padding: 34px clamp(24px, 6vw, 76px); background: #17212b; color: #dfe7eb; }
+    footer a { color: #8ed8df; }
+    @media (max-width: 850px) {
+      .shell { display: block; }
+      nav { position: relative; height: auto; border-right: 0; border-bottom: 5px solid var(--centos); }
+      nav .links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .anatomy, .model { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 520px) {
+      header, section { padding-left: 18px; padding-right: 18px; }
+      nav .links, .anatomy, .model { grid-template-columns: 1fr; }
+      h1 { font-size: 30px; }
+      .lead { font-size: 16px; }
+    }
+    @media print {
+      body { background: #fff; font-size: 11pt; }
+      .shell { display: block; }
+      nav { display: none; }
+      main { width: 100%; }
+      header, section { padding: 20px 0; break-inside: avoid; }
+      section:nth-of-type(even) { background: #fff; }
+      pre { white-space: pre-wrap; overflow-wrap: anywhere; color: #000; background: #fff; border: 1px solid #777; }
+      table { min-width: 0; }
+      a { color: #000; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <nav aria-label="目录">
+    <p class="nav-title">BBS 运维口袋手册</p>
+    <p class="nav-sub">CentOS 7 · Docker · 初学者版</p>
+    <div class="links">
+      <div>
+        <p class="nav-group">先读</p>
+        <a href="#syntax">命令怎么读</a>
+        <a href="#help">帮助与系统信息</a>
+      </div>
+      <div>
+        <p class="nav-group">Linux</p>
+        <a href="#files">文件与目录</a>
+        <a href="#text">查看与搜索</a>
+        <a href="#permission">权限与用户</a>
+        <a href="#process">进程、服务与资源</a>
+        <a href="#network">网络、防火墙、SELinux</a>
+        <a href="#package">软件包与压缩</a>
+      </div>
+      <div>
+        <p class="nav-group">Docker</p>
+        <a href="#docker-model">四个核心对象</a>
+        <a href="#docker-image">环境与镜像</a>
+        <a href="#docker-container">容器生命周期</a>
+        <a href="#docker-debug">日志与排错</a>
+        <a href="#docker-data">数据卷与网络</a>
+        <a href="#compose">Docker Compose</a>
+      </div>
+      <div>
+        <p class="nav-group">实战</p>
+        <a href="#diagnose">BBS 排错顺序</a>
+        <a href="#cleanup">安全清理</a>
+        <a href="0002-bbs-docker-learning-roadmap.html">学习路线图</a>
+        <a href="../lessons/0002-centos7-first-docker-container.html">开始第一课</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <header>
+      <p class="eyebrow">不是背诵表，而是 BBS 部署时的操作地图</p>
+      <h1>CentOS 7 + Docker<br>常用命令速查表</h1>
+      <p class="lead">先看风险标签，再读命令结构，最后观察输出。所有示例围绕 BBS、MySQL、Redis 和容器排错，删除操作都使用明确名称。</p>
+      <p class="version">适用环境：CentOS Linux 7 学习虚拟机。CentOS 7 已停止维护，不作为新生产服务器建议。</p>
+    </header>
+
+    <section id="syntax">
+      <h2>01 · 先学会“读”命令</h2>
+      <p class="section-lead">看到陌生命令，先拆成三段。命令决定做什么，选项改变做法，参数说明对谁做。</p>
+      <div class="prompt" role="img" aria-label="命令结构示例">
+        <div class="prompt-line"><span class="p-user">student@bbs-lab</span>:<span class="p-path">~/BBS</span>$ <span class="p-command">docker logs</span> <span class="p-option">--tail 50</span> <span class="p-arg">bbs-mysql</span></div>
+      </div>
+      <div class="anatomy">
+        <div><b>命令</b><code>docker logs</code><br>读取容器输出。</div>
+        <div><b>选项</b><code>--tail 50</code><br>只显示最后 50 行。</div>
+        <div><b>参数</b><code>bbs-mysql</code><br>目标容器名称。</div>
+      </div>
+      <h3>风险标签</h3>
+      <div class="legend">
+        <span class="badge read">只读检查</span>
+        <span class="badge change">改变状态</span>
+        <span class="badge delete">删除资源</span>
+        <span class="badge root">需要 root</span>
+      </div>
+      <p class="note"><strong>提示符：</strong><code>$</code> 通常表示普通用户，<code>#</code> 通常表示 root。教程里的命令不要把提示符一起复制。</p>
+    </section>
+
+    <section id="help">
+      <h2>02 · 帮助、历史与系统身份</h2>
+      <p class="section-lead">不确定时先查帮助和当前环境。这些命令主要是只读检查。</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>命令</th><th>用途与 BBS 示例</th><th>观察什么</th></tr></thead>
+        <tbody>
+          <tr><td><code>man docker</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>打开本机手册。按 <code>q</code> 退出，<code>/word</code> 搜索。</td><td>本机实际安装版本支持的选项。</td></tr>
+          <tr><td><code>docker run --help</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>查看某个子命令的简要帮助。</td><td><code>-p</code>、<code>-v</code>、<code>--name</code> 的格式。</td></tr>
+          <tr><td><code>history | tail -20</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>查看最近执行过的 20 条命令。</td><td>是否重复执行了启动或删除命令。</td></tr>
+          <tr><td><code>clear</code></td><td>清理当前终端显示，不删除历史。</td><td>仅改变屏幕，不改变系统。</td></tr>
+          <tr><td><code>whoami</code> / <code>id</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>确认当前用户、UID 和所属组。</td><td>是否属于 <code>docker</code> 组。</td></tr>
+          <tr><td><code>hostnamectl</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>查看主机名、系统和内核摘要。</td><td>虚拟机名称与 CentOS 版本。</td></tr>
+          <tr><td><code>cat /etc/os-release</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>准确识别 Linux 发行版。</td><td><code>NAME</code> 与 <code>VERSION_ID</code>。</td></tr>
+          <tr><td><code>uname -r</code> / <code>date</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>查看内核版本和系统时间。</td><td>排查 Docker 内核兼容性、日志时间偏差。</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="files">
+      <h2>03 · 文件与目录</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>命令</th><th>用途与示例</th><th>注意</th></tr></thead>
+        <tbody>
+          <tr><td><code>pwd</code> / <code>ls -lah</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>显示当前位置和包含隐藏项的文件列表。</td><td>修改文件前先用 <code>pwd</code> 确认目录。</td></tr>
+          <tr><td><code>cd /opt/bbs</code><span class="risk"><span class="badge change">改变状态</span></span></td><td>切换到 BBS 部署目录；<code>cd ..</code> 返回上一级，<code>cd -</code> 返回上一次目录。</td><td>只改变当前终端位置。</td></tr>
+          <tr><td><code>mkdir -p /opt/bbs/logs</code><span class="risk"><span class="badge change">改变状态</span> <span class="badge root">需要 root</span></span></td><td>创建目录及缺失的父目录。</td><td><code>/opt</code> 通常需要 <code>sudo</code>。</td></tr>
+          <tr><td><code>touch /tmp/bbs-notes.txt</code><span class="risk"><span class="badge change">改变状态</span></span></td><td>创建空文件或更新时间。</td><td>不会自动写入内容。</td></tr>
+          <tr><td><code>cp application.yml /tmp/application.yml.bak</code><span class="risk"><span class="badge change">改变状态</span></span></td><td>修改配置前创建明确的备份。</td><td>复制目录使用 <code>cp -r</code>，先确认目标。</td></tr>
+          <tr><td><code>mv /tmp/bbs-notes.txt /tmp/bbs-command-notes.txt</code><span class="risk"><span class="badge change">改变状态</span></span></td><td>移动或重命名一个明确文件。</td><td>目标同名时可能覆盖。</td></tr>
+          <tr><td><code>rm /tmp/bbs-command-notes.txt</code><span class="risk"><span class="badge delete">删除资源</span></span></td><td>删除一个明确的练习文件。</td><td>终端删除通常不进回收站；运行前再次核对完整路径。</td></tr>
+          <tr><td><code>find /opt/bbs -name "*.log"</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>在 BBS 目录下寻找日志文件。</td><td>搜索范围越小越快。</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="text">
+      <h2>04 · 查看、跟踪与搜索文本</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>命令</th><th>用途与示例</th><th>什么时候用</th></tr></thead>
+        <tbody>
+          <tr><td><code>cat /etc/os-release</code></td><td>一次输出较短文件。</td><td>配置很短时。</td></tr>
+          <tr><td><code>less application.yml</code></td><td>分页查看长文件；<code>q</code> 退出。</td><td>查看配置但不修改。</td></tr>
+          <tr><td><code>head -20 app.log</code></td><td>显示开头 20 行。</td><td>确认日志头或文件格式。</td></tr>
+          <tr><td><code>tail -f app.log</code></td><td>持续跟踪新增日志；<code>Ctrl+C</code> 停止跟踪。</td><td>启动 BBS 时实时观察。</td></tr>
+          <tr><td><code>grep -n "ERROR" app.log</code></td><td>搜索错误并显示行号。</td><td>从大日志快速定位异常。</td></tr>
+          <tr><td><code>grep -R "spring.datasource" /opt/bbs</code></td><td>递归搜索配置关键字。</td><td>只对明确的小目录使用，避免扫遍整个系统。</td></tr>
+        </tbody>
+      </table></div>
+      <p class="note">以上都是 <span class="badge read">只读检查</span>。查看日志优先使用 <code>less</code>、<code>tail</code> 和 <code>grep</code>，不要为了查看而改文件。</p>
+    </section>
+
+    <section id="permission">
+      <h2>05 · 用户与权限</h2>
+      <p><code>-rwxr-x---</code> 可拆成：文件类型、所有者权限、组权限、其他人权限。数字写法中 <code>r=4</code>、<code>w=2</code>、<code>x=1</code>，所以 <code>750</code> 表示所有者 7、组 5、其他人 0。</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>命令</th><th>用途</th><th>风险</th></tr></thead>
+        <tbody>
+          <tr><td><code>ls -l /opt/bbs</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>查看所有者、组和权限。</td><td>先检查再修改。</td></tr>
+          <tr><td><code>sudo chmod 750 /opt/bbs</code><span class="risk"><span class="badge change">改变状态</span> <span class="badge root">需要 root</span></span></td><td>允许所有者读写执行、组读执行，禁止其他人访问。</td><td>不要用 <code>777</code> 作为万能修复。</td></tr>
+          <tr><td><code>sudo chown -R student:student /opt/bbs</code><span class="risk"><span class="badge change">改变状态</span> <span class="badge root">需要 root</span></span></td><td>把明确目录交给学习用户。</td><td><code>-R</code> 会递归改变全部子项，只能对已核对路径使用。</td></tr>
+          <tr><td><code>sudo systemctl status docker</code><span class="risk"><span class="badge read">只读检查</span> <span class="badge root">需要 root</span></span></td><td>临时以管理员权限检查 Docker 服务。</td><td><code>sudo</code> 不是每条命令都要加。</td></tr>
+        </tbody>
+      </table></div>
+      <p class="warning"><strong>Docker 组权限很高：</strong>能直接使用 Docker 的用户通常可以获得接近 root 的主机控制能力，只给可信账号使用。</p>
+    </section>
+
+    <section id="process">
+      <h2>06 · 进程、服务与资源</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>命令</th><th>BBS 场景</th><th>观察或操作</th></tr></thead>
+        <tbody>
+          <tr><td><code>ps aux | grep java</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>寻找 Spring Boot Java 进程。</td><td>PID、CPU、内存和启动命令。</td></tr>
+          <tr><td><code>top</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>实时查看资源占用，按 <code>q</code> 退出。</td><td>CPU 或内存是否持续过高。</td></tr>
+          <tr><td><code>kill -15 12345</code><span class="risk"><span class="badge change">改变状态</span></span></td><td>请求 PID 12345 优雅退出。</td><td>先用 <code>ps</code> 核对 PID；不要一开始就用强制信号。</td></tr>
+          <tr><td><code>systemctl status docker --no-pager</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>查看 Docker 服务状态。</td><td><code>active (running)</code> 和最近错误。</td></tr>
+          <tr><td><code>sudo systemctl restart docker</code><span class="risk"><span class="badge change">改变状态</span> <span class="badge root">需要 root</span></span></td><td>确有必要时重启 Docker 服务。</td><td>会影响该主机上的所有容器，先确认影响范围。</td></tr>
+          <tr><td><code>journalctl -u docker -n 100 --no-pager</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>查看 Docker 服务最后 100 行日志。</td><td>启动失败、存储或 socket 报错。</td></tr>
+          <tr><td><code>free -h</code> / <code>df -h</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>查看内存和磁盘余量。</td><td>MySQL/ES 启动前确认资源。</td></tr>
+          <tr><td><code>du -sh /var/lib/docker</code> / <code>lsblk</code><span class="risk"><span class="badge read">只读检查</span> <span class="badge root">需要 root</span></span></td><td>估算 Docker 数据目录并查看磁盘结构。</td><td>只读检查，不直接删除数据目录。</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="network">
+      <h2>07 · 网络、防火墙与 SELinux</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>命令</th><th>用途</th><th>关键判断</th></tr></thead>
+        <tbody>
+          <tr><td><code>ip addr</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>查看网卡和虚拟机 IP。</td><td>忽略 <code>lo</code>，寻找局域网网卡地址。</td></tr>
+          <tr><td><code>ss -lntp</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>查看 TCP 监听端口及进程。</td><td>排查 8080、3306、6379 是否冲突。</td></tr>
+          <tr><td><code>curl -I http://127.0.0.1:8080</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>从虚拟机内部测试 BBS HTTP 响应头。</td><td>先本机通，再排查防火墙和虚拟机网络。</td></tr>
+          <tr><td><code>ping -c 4 8.8.8.8</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>做基础网络连通性测试。</td><td>部分网络会禁 ICMP，失败不等于 HTTP 一定失败。</td></tr>
+          <tr><td><code>firewall-cmd --list-all</code><span class="risk"><span class="badge read">只读检查</span> <span class="badge root">需要 root</span></span></td><td>查看当前区域和开放端口。</td><td>先确认端口是否真的需要从宿主机外访问。</td></tr>
+          <tr><td><code>sudo firewall-cmd --permanent --add-port=8080/tcp</code><br><code>sudo firewall-cmd --reload</code><span class="risk"><span class="badge change">改变状态</span> <span class="badge root">需要 root</span></span></td><td>需要从 Windows 访问 BBS 时开放 8080。</td><td>不要把 MySQL/Redis 无条件暴露到局域网。</td></tr>
+          <tr><td><code>getenforce</code> / <code>ls -Z /opt/bbs</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>查看 SELinux 模式和文件安全标签。</td><td>遇到权限错误先检查标签，不默认关闭 SELinux。</td></tr>
+        </tbody>
+      </table></div>
+      <p class="warning"><strong>不要开放 <code>0.0.0.0:2375</code>。</strong>未认证 Docker API 等同于把虚拟机控制权交给网络中的访问者。</p>
+    </section>
+
+    <section id="package">
+      <h2>08 · 软件包与压缩</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>命令</th><th>用途</th><th>CentOS 7 注意事项</th></tr></thead>
+        <tbody>
+          <tr><td><code>yum repolist</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>列出启用的软件仓库。</td><td>CentOS 7 停止维护后仓库可能失效；先保留完整报错。</td></tr>
+          <tr><td><code>yum info git</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>查看可用包版本，不安装。</td><td>先确认来源与版本。</td></tr>
+          <tr><td><code>sudo yum install -y git</code><span class="risk"><span class="badge change">改变状态</span> <span class="badge root">需要 root</span></span></td><td>从已配置仓库安装 Git。</td><td>失败时不要立即替换仓库文件，先记录错误。</td></tr>
+          <tr><td><code>rpm -qa | grep docker</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>查找已安装的 Docker 相关 RPM。</td><td>与 <code>docker version</code> 结合判断。</td></tr>
+          <tr><td><code>tar -czf /tmp/bbs-config.tgz /opt/bbs/config</code><span class="risk"><span class="badge change">改变状态</span></span></td><td>把明确配置目录打成 gzip 压缩包。</td><td>输出文件使用明确路径，注意不要把密钥提交到 Git。</td></tr>
+          <tr><td><code>tar -tzf /tmp/bbs-config.tgz</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>不解压，先列出压缩包内容。</td><td>解压陌生包前先检查路径。</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="docker-model">
+      <h2>09 · Docker 的四个核心对象</h2>
+      <div class="model">
+        <div><strong>镜像 Image</strong>只读模板，例如 <code>mysql:8.4</code>。像安装包，不是正在运行的程序。</div>
+        <div><strong>容器 Container</strong>镜像的一次运行实例，例如 <code>bbs-mysql</code>。可启动、停止、删除。</div>
+        <div><strong>数据卷 Volume</strong>独立保存数据，例如 <code>bbs-mysql-data</code>。替换容器时数据仍可保留。</div>
+        <div><strong>网络 Network</strong>让容器按名称互相访问，例如 <code>bbs-network</code>。</div>
+      </div>
+      <pre><code>mysql:8.4 镜像  --创建--&gt;  bbs-mysql 容器
+                               |--挂载--&gt; bbs-mysql-data 数据卷
+                               |--加入--&gt; bbs-network 网络</code></pre>
+    </section>
+
+    <section id="docker-image">
+      <h2>10 · Docker 环境与镜像</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>命令</th><th>用途</th><th>观察或风险</th></tr></thead>
+        <tbody>
+          <tr><td><code>docker version</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>分别查看客户端和服务端版本。</td><td>只有 Client 没有 Server 时，Docker Engine 不可用。</td></tr>
+          <tr><td><code>docker info</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>查看存储驱动、容器数量、镜像数量和资源。</td><td>输出较长，重点看错误和 Server 段。</td></tr>
+          <tr><td><code>docker system df</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>统计镜像、容器、卷占用。</td><td>磁盘不足时先看这里，不直接删目录。</td></tr>
+          <tr><td><code>docker pull mysql:8.4</code><span class="risk"><span class="badge change">改变状态</span></span></td><td>下载固定标签的 MySQL 镜像。</td><td>占用磁盘与网络；标签决定版本。</td></tr>
+          <tr><td><code>docker images</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>列出本机镜像。</td><td>核对仓库、标签、镜像 ID 和大小。</td></tr>
+          <tr><td><code>docker image inspect mysql:8.4</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>查看镜像详细元数据。</td><td>入口命令、架构和标签。</td></tr>
+          <tr><td><code>docker rmi mysql:8.4</code><span class="risk"><span class="badge delete">删除资源</span></span></td><td>删除明确镜像标签。</td><td>依赖该镜像的容器存在时通常会拒绝删除。</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="docker-container">
+      <h2>11 · 容器生命周期</h2>
+      <pre><code>docker run -d --name bbs-redis -p 6379:6379 redis:7-alpine
+# -d 后台运行 | --name 固定名称 | -p 主机端口:容器端口 | 最后是镜像</code></pre>
+      <div class="table-wrap"><table>
+        <thead><tr><th>命令</th><th>作用</th><th>状态变化</th></tr></thead>
+        <tbody>
+          <tr><td><code>docker run -d --name bbs-redis -p 6379:6379 redis:7-alpine</code><span class="risk"><span class="badge change">改变状态</span></span></td><td>从镜像创建并启动一个命名容器。</td><td>不存在 → 运行中。</td></tr>
+          <tr><td><code>docker ps</code> / <code>docker ps -a</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>分别查看运行中容器和全部容器。</td><td>退出的容器只在 <code>-a</code> 中出现。</td></tr>
+          <tr><td><code>docker stop bbs-redis</code><span class="risk"><span class="badge change">改变状态</span></span></td><td>请求容器优雅停止。</td><td>运行中 → 已停止，容器仍存在。</td></tr>
+          <tr><td><code>docker start bbs-redis</code><span class="risk"><span class="badge change">改变状态</span></span></td><td>启动已存在的停止容器。</td><td>已停止 → 运行中。</td></tr>
+          <tr><td><code>docker restart bbs-redis</code><span class="risk"><span class="badge change">改变状态</span></span></td><td>停止后重新启动。</td><td>会产生短暂中断，先看日志判断是否必要。</td></tr>
+          <tr><td><code>docker rm bbs-redis</code><span class="risk"><span class="badge delete">删除资源</span></span></td><td>删除一个已停止容器。</td><td>容器消失；命名卷默认不会随之删除。</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="docker-debug">
+      <h2>12 · 日志、进入容器与观察</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>命令</th><th>用途</th><th>BBS 排错用法</th></tr></thead>
+        <tbody>
+          <tr><td><code>docker logs --tail 100 bbs-mysql</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>查看最后 100 行容器标准输出。</td><td>先找 MySQL 初始化失败或连接拒绝。</td></tr>
+          <tr><td><code>docker logs -f bbs-app</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>持续跟踪日志，<code>Ctrl+C</code> 退出跟踪。</td><td>观察 Spring Boot 启动过程。</td></tr>
+          <tr><td><code>docker inspect bbs-mysql</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>查看端口、挂载、网络和状态详情。</td><td>确认环境变量和 volume 是否挂载。</td></tr>
+          <tr><td><code>docker stats --no-stream</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>获取一次容器资源快照。</td><td>确认 Elasticsearch 是否因内存不足异常。</td></tr>
+          <tr><td><code>docker port bbs-mysql</code> / <code>docker top bbs-mysql</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>查看端口映射和容器内进程。</td><td>判断是否映射、主进程是否仍在。</td></tr>
+          <tr><td><code>docker exec -it bbs-mysql bash</code><span class="risk"><span class="badge change">改变状态</span></span></td><td>在运行容器中启动交互 shell。</td><td>用于临时诊断，不把手工修改当正式配置。</td></tr>
+          <tr><td><code>docker cp bbs-app:/app/logs/error.log /tmp/bbs-error.log</code><span class="risk"><span class="badge change">改变状态</span></span></td><td>从容器复制明确日志文件到主机。</td><td>确认源和目标方向，冒号左侧是容器。</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="docker-data">
+      <h2>13 · 数据卷与容器网络</h2>
+      <h3>数据卷：让数据库数据离开容器生命周期</h3>
+      <pre><code>docker volume create bbs-mysql-data
+docker volume ls
+docker volume inspect bbs-mysql-data
+
+docker run -d --name bbs-mysql \
+  -v bbs-mysql-data:/var/lib/mysql \
+  -e MYSQL_ROOT_PASSWORD=local-only-password \
+  mysql:8.4</code></pre>
+      <p><code>docker volume rm bbs-mysql-data</code> 带有 <span class="badge delete">删除资源</span> 风险，会删除数据库持久数据。只有确认不再需要且已备份时才执行。</p>
+      <h3>网络：让服务用名字通信</h3>
+      <pre><code>docker network create bbs-network
+docker network ls
+docker network inspect bbs-network
+docker network connect bbs-network bbs-mysql
+docker network connect bbs-network bbs-app
+
+# bbs-app 在该网络中可使用 bbs-mysql:3306，不依赖容器 IP</code></pre>
+      <p><code>docker network disconnect bbs-network bbs-app</code> 会断开应用网络；<code>docker network rm bbs-network</code> 会删除未被使用的明确网络。</p>
+    </section>
+
+    <section id="compose">
+      <h2>14 · Docker Compose</h2>
+      <p class="section-lead">Compose 用 YAML 记录多个容器、网络、数据卷和启动关系。先逐个理解服务，再使用 Compose。</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>命令</th><th>用途</th><th>风险或判断</th></tr></thead>
+        <tbody>
+          <tr><td><code>docker compose version</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>确认 Compose 插件可用。</td><td>旧环境可能只有 <code>docker-compose</code>，先记录版本再决定。</td></tr>
+          <tr><td><code>docker compose config</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>解析并验证 Compose 配置。</td><td>启动前先运行，检查变量和格式。</td></tr>
+          <tr><td><code>docker compose up -d</code><span class="risk"><span class="badge change">改变状态</span></span></td><td>创建并后台启动当前项目服务。</td><td>会创建容器、网络，必要时拉镜像。</td></tr>
+          <tr><td><code>docker compose ps</code> / <code>docker compose logs -f</code><span class="risk"><span class="badge read">只读检查</span></span></td><td>查看服务状态和实时日志。</td><td>先看状态，再按服务看日志。</td></tr>
+          <tr><td><code>docker compose restart bbs-app</code><span class="risk"><span class="badge change">改变状态</span></span></td><td>仅重启指定服务。</td><td>比重启 Docker 服务影响更小。</td></tr>
+          <tr><td><code>docker compose stop</code><span class="risk"><span class="badge change">改变状态</span></span></td><td>停止服务但保留容器。</td><td>之后可再次启动。</td></tr>
+          <tr><td><code>docker compose down</code><span class="risk"><span class="badge delete">删除资源</span></span></td><td>停止并删除 Compose 容器和默认网络。</td><td>命名卷默认保留；不要随意追加删除卷选项。</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="diagnose">
+      <h2>15 · BBS 容器排错顺序</h2>
+      <p>从便宜、只读的检查开始。不要一遇到错误就重装、关防火墙或删数据。</p>
+      <div class="flow" aria-label="容器排错流程">
+        <span>容器存在？</span><i>→</i><span>正在运行？</span><i>→</i><span>日志健康？</span><i>→</i><span>端口已映射？</span><i>→</i><span>主机在监听？</span><i>→</i><span>防火墙允许？</span><i>→</i><span>网络已连接？</span><i>→</i><span>卷与权限正确？</span>
+      </div>
+      <details><summary>容器名称冲突：name is already in use</summary><p>运行 <code>docker ps -a --filter name=bbs-mysql</code>。决定复用、重命名还是删除明确的旧容器，不要全局清理。</p></details>
+      <details><summary>端口占用：port is already allocated</summary><p>运行 <code>ss -lntp | grep 3306</code> 和 <code>docker ps --format "table {{.Names}}\t{{.Ports}}"</code>，确认占用者后改映射或停止明确服务。</p></details>
+      <details><summary>Docker socket permission denied</summary><p>运行 <code>id</code>、<code>ls -l /var/run/docker.sock</code> 和 <code>systemctl status docker</code>。不要通过给 socket 设置任意人可写来绕过权限。</p></details>
+      <details><summary>镜像拉取超时</summary><p>先检查 <code>curl -I https://registry-1.docker.io</code>、DNS 和虚拟机网络，再单独运行目标 <code>docker pull</code> 保留完整错误。</p></details>
+      <details><summary>容器启动后立即退出</summary><p>运行 <code>docker ps -a</code>、<code>docker logs --tail 100 容器名</code> 和 <code>docker inspect 容器名</code>。退出通常是主进程结束或配置错误。</p></details>
+      <details><summary>磁盘空间不足</summary><p>运行 <code>df -h</code>、<code>docker system df</code> 和 <code>du -sh /var/lib/docker</code>。先识别占用，再删除明确的废弃对象。</p></details>
+    </section>
+
+    <section id="cleanup">
+      <h2>16 · 安全清理原则</h2>
+      <ol>
+        <li>先用 <code>docker ps -a</code>、<code>docker images</code>、<code>docker volume ls</code> 看清对象。</li>
+        <li>优先删除明确名称：<code>docker rm bbs-practice-web</code>。</li>
+        <li>数据库卷与容器分开判断；删容器不等于必须删数据。</li>
+        <li><code>prune</code> 会批量删除“未使用”对象，初学阶段不作为默认命令。</li>
+        <li>绝不直接删除 <code>/var/lib/docker</code> 来解决空间问题。</li>
+      </ol>
+      <div class="success"><strong>下一步：</strong>打开<a href="../lessons/0002-centos7-first-docker-container.html">第一课：运行你的第一个练习容器</a>，把本页的查看、日志、停止、启动和删除命令串成一次完整实践。</div>
+    </section>
+
+    <footer>
+      <p><strong>配套资料：</strong> <a href="0002-bbs-docker-learning-roadmap.html">BBS Docker 学习路线图</a> · <a href="../lessons/0001-run-task3-with-linux-vm-docker.html">Task 3 MySQL/Flyway 教程</a></p>
+      <p>命令语法以 <a href="https://docs.docker.com/reference/cli/docker/">Docker CLI 官方参考</a>和 <a href="https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/7">RHEL 7 官方文档</a>为准。</p>
+    </footer>
+  </main>
+</div>
+</body>
+</html>
