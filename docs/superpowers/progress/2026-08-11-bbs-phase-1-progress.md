@@ -18,8 +18,8 @@
 
 ## Task status
 
-- [ ] Task 1: establish failing baseline and dependency set
-- [ ] Task 2: repair homepage pagination with tests
+- [x] Task 1: establish failing baseline and dependency set
+- [x] Task 2: repair homepage pagination with tests
 - [ ] Task 3: add environment-backed configuration and Flyway baseline
 - [ ] Task 4: introduce validated web contracts and uniform errors
 - [ ] Task 5: migrate account storage to BCrypt
@@ -36,7 +36,19 @@
 - First spec review: rejected because `MySqlContainerSupport` used `root/root` instead of the required `bbs/bbs` test credentials.
 - Spec correction commit: `e73cfb8 test: align baseline database credentials`.
 - Post-correction compiler result: expected single source error remains; dependency resolution succeeds.
-- Status: awaiting spec re-review and code-quality review before completion.
+- Controller spec re-review confirmed database, username and password are all `bbs`; dependency scopes and context-test wiring remain compliant.
+- Controller quality review found no additional Task 1 issues. Independent re-review could not be dispatched because the subagent entry point was unavailable.
+- Status: complete.
+
+### Task 2
+
+- RED: focused test failed because `getBBSPostPageForIndex(PageQueryUtil)` was absent.
+- Implementation commit: `767287e fix: restore homepage post pagination`.
+- Implemented active/non-deleted filters, category/keyword/period filters, views/time ordering, page-size cap, batch author enrichment and non-null empty pages.
+- Verification: `BBSPostServiceImplTest` 2/2 passed; `mvn.cmd -DskipTests compile` returned `BUILD SUCCESS`.
+- A proposed SQL-segment assertion failed because a pure Mockito test does not initialize MyBatis-Plus lambda metadata; it was removed instead of adding test-only production coupling.
+- Controller spec and quality review found no blocking issue. Independent reviewers could not be dispatched because the subagent entry point was unavailable.
+- Status: complete.
 
 ## Handoff notes
 
