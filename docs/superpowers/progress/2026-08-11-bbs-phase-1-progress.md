@@ -56,6 +56,7 @@
 - Configuration and migration files added; collection primary key uses existing entity-compatible `record_id`.
 - `mvn.cmd -DskipTests compile` and `mvn.cmd -DskipTests test-compile` both returned `BUILD SUCCESS`.
 - Integration test was attempted with a sanitized child-process PATH; it reached Testcontainers and failed because no valid Docker environment is installed. The original environment also contains malformed quoted PATH entries, which were isolated from the project.
+- Linux VM verification tutorial: `lessons/0001-run-task3-with-linux-vm-docker.html`. Recommended execution runs Maven and Docker together inside the VM; remote Docker over TCP is documented only as a TLS-protected advanced option.
 - Status: implementation complete, integration verification pending Docker; do not claim the migration has run successfully until the container test passes.
 
 ### Task 4
