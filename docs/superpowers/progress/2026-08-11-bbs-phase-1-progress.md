@@ -45,3 +45,4 @@
 - Source investigation must use CodeGraph before inspecting project source files.
 - Do not implement directly on `main`; work only in this worktree.
 - Do not dispatch parallel implementers; each task uses a fresh implementer and sequential reviews.
+- The PowerShell profile currently prints a Conda `Invoke-Expression` parse error after commands; rely on the command exit code and primary output because Git/Maven commands themselves still execute.
