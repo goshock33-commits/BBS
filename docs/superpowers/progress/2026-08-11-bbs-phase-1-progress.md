@@ -21,7 +21,7 @@
 - [x] Task 1: establish failing baseline and dependency set
 - [x] Task 2: repair homepage pagination with tests
 - [ ] Task 3: add environment-backed configuration and Flyway baseline (integration verification pending Docker)
-- [ ] Task 4: introduce validated web contracts and uniform errors
+- [x] Task 4: introduce validated web contracts and uniform errors
 - [ ] Task 5: migrate account storage to BCrypt
 - [ ] Task 6: replace login interceptor with Spring Security
 - [ ] Task 7: migrate authentication and profile endpoints to DTOs
@@ -57,6 +57,15 @@
 - `mvn.cmd -DskipTests compile` and `mvn.cmd -DskipTests test-compile` both returned `BUILD SUCCESS`.
 - Integration test was attempted with a sanitized child-process PATH; it reached Testcontainers and failed because no valid Docker environment is installed. The original environment also contains malformed quoted PATH entries, which were isolated from the project.
 - Status: implementation complete, integration verification pending Docker; do not claim the migration has run successfully until the container test passes.
+
+### Task 4
+
+- RED: `GlobalExceptionHandlerTest` initially failed because web contracts were absent.
+- Added `spring-boot-starter-webmvc-test`; Spring Boot 4 moved MVC test slices out of the base test starter and changed the annotation package.
+- Added `ApiResult<T>`, generic `PageResult<T>`, stable `ErrorCode`, `BusinessException`, global exception mapping, trace ID support and four validated request DTOs.
+- Isolated the MVC slice from the application's global `@MapperScan` using an explicit test context.
+- Verification: `GlobalExceptionHandlerTest` and `BBSPostServiceImplTest` ran 3 tests with 0 failures and 0 errors.
+- Status: complete; independent reviewers remain unavailable in this session, so controller review is recorded instead.
 
 ## Handoff notes
 
