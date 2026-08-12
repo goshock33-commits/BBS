@@ -20,7 +20,7 @@
 
 - [x] Task 1: establish failing baseline and dependency set
 - [x] Task 2: repair homepage pagination with tests
-- [ ] Task 3: add environment-backed configuration and Flyway baseline (integration verification pending Docker)
+- [x] Task 3: add environment-backed configuration and Flyway baseline
 - [x] Task 4: introduce validated web contracts and uniform errors
 - [x] Task 5: migrate account storage to BCrypt
 - [x] Task 6: replace login interceptor with Spring Security
@@ -57,7 +57,13 @@
 - `mvn.cmd -DskipTests compile` and `mvn.cmd -DskipTests test-compile` both returned `BUILD SUCCESS`.
 - Integration test was attempted with a sanitized child-process PATH; it reached Testcontainers and failed because no valid Docker environment is installed. The original environment also contains malformed quoted PATH entries, which were isolated from the project.
 - Linux VM verification tutorial: `lessons/0001-run-task3-with-linux-vm-docker.html`. Recommended execution runs Maven and Docker together inside the VM; remote Docker over TCP is documented only as a TLS-protected advanced option.
-- Status: implementation complete, integration verification pending Docker; do not claim the migration has run successfully until the container test passes.
+- Learner-managed CentOS 7 environment was prepared with Java 17, Maven 3.9.11 and Docker. The exact `mysql:8.4` image is now available locally.
+- First Linux run downloaded `mysql:8.4` but Testcontainers' pull watchdog interrupted the test because the slow image pull made no progress for 30 seconds. The image completed downloading despite the failed Maven run.
+- Second Linux run started MySQL and connected successfully, then reproduced the intended RED failure: `FlywayMigrationTest` could not find `tb_bbs_user` because Spring Boot 4 no longer supplied Flyway auto-configuration from `flyway-core` alone.
+- Root fix commit: `f5b9c39 fix: enable Flyway auto-configuration`, adding the Spring Boot 4 `spring-boot-flyway` module.
+- Final Linux Docker verification on 2026-08-12: `mvn -Dtest=FlywayMigrationTest,BbsApplicationTests test` returned `BUILD SUCCESS`; 2 tests ran with 0 failures and 0 errors. Logs confirm MySQL 8.4 startup, Flyway validation, creation of `flyway_schema_history`, application of `V1__baseline_schema.sql`, and schema version `v1`.
+- Non-blocking warnings remain: Flyway reports MySQL 8.4 is newer than its latest verified MySQL 8.1, and MySQL reports deprecated integer display width syntax. Neither affected migration or tests.
+- Status: complete.
 
 ### Task 4
 
@@ -77,7 +83,7 @@
 - Review fixes: account reads and writes no longer use Redis in Phase 1, profile/password updates require a successful database write, and passwords over 72 UTF-8 bytes return `VALIDATION_ERROR` before BCrypt encoding.
 - Verification: 17 non-Docker regression tests passed across account services, password configuration, user serialization, homepage pagination and global errors; compilation and final diff checks are recorded at the Task 5 commit boundary.
 - Existing SHA-256 hashes cannot be converted to BCrypt because hashes are irreversible; existing accounts require a later reset or login-time migration policy.
-- Status: complete. Task 3 remains pending learner-run Linux Docker verification and still gates final Task 8 verification.
+- Status: complete. The formerly pending Task 3 Linux Docker verification passed on 2026-08-12.
 
 ### Task 6
 
@@ -100,16 +106,17 @@
 - Removed state-changing `GET /logout`; logout now uses the Spring Security POST route with CSRF protection.
 - Updated login, registration and settings pages to send JSON to the new routes. The shared header supplies CSRF metadata and jQuery headers; avatar upload uses Layui upload headers instead of placing the token in the URL.
 - Review fixes aligned the browser password rule with the 8-72 character and 72 UTF-8 byte backend contract, prevented partially persisted authentication when compatibility user lookup fails, and added Session fixation protection.
-- Verification: 34 non-Docker tests passed with zero failures and errors; compilation and `git diff --check` passed. Docker-backed Flyway/context verification is still pending under Task 3.
+- Verification: 34 non-Docker tests passed with zero failures and errors; compilation and `git diff --check` passed. Docker-backed Flyway/context verification subsequently passed under Task 3 on 2026-08-12.
 - Status: complete.
 
 ### Task 8
 
 - Added `.env.example` with local database, Redis and server variables; no real credentials are stored in Git.
 - Added `HELP.md` with MySQL bootstrap SQL, PowerShell environment setup, local startup, non-Docker regression commands and the Linux Docker integration handoff.
-- Windows verification available so far: 34 non-Docker tests and compilation pass; `git diff --check` reports no errors.
-- Remaining: run `FlywayMigrationTest` and `BbsApplicationTests` in the learner-managed Linux Docker environment, then start against an empty MySQL schema and perform the Phase 1 smoke checks.
-- Status: in progress; Task 3 Docker verification still gates completion.
+- Windows verification: 34 non-Docker tests pass with zero failures and errors; compilation and `git diff --check` pass.
+- Linux Docker integration verification: `FlywayMigrationTest` and `BbsApplicationTests` pass against Testcontainers MySQL 8.4; Flyway V1 runs successfully against an empty schema.
+- Remaining: run the complete `mvn verify` lifecycle, start the application against an empty local MySQL database, and perform the Phase 1 smoke checks listed in the implementation plan before closing Phase 1.
+- Status: in progress; Task 3 no longer blocks completion.
 
 ## Handoff notes
 
@@ -119,3 +126,9 @@
 - Do not implement directly on `main`; work only in this worktree.
 - Do not dispatch parallel implementers; each task uses a fresh implementer and sequential reviews.
 - The PowerShell profile currently prints a Conda `Invoke-Expression` parse error after commands; rely on the command exit code and primary output because Git/Maven commands themselves still execute.
+- Current branch and worktree: `phase1/baseline-security` at `D:\JavaWorkSpace\BBS\.worktrees\phase1-baseline-security`.
+- Latest implementation fix: `f5b9c39 fix: enable Flyway auto-configuration`; it is present on `origin/phase1/baseline-security`. Inspect `HEAD` for the progress-document update commit before continuing.
+- `main` remains at the original baseline and Phase 1 has not been merged. Do not merge until Task 8 is closed and the branch-finishing workflow has been followed.
+- Linux and Docker commands are learner-owned: explain the exact commands and their purpose, then wait for the learner to execute them and provide output. Do not assume remote control of the VM.
+- CentOS project checkout: `/root/BBS1`, using local branch `phase1/baseline-security`. `git fetch origin` updates the remote-tracking branch; use `git pull --ff-only origin phase1/baseline-security` to advance the existing local branch.
+- Current environment evidence: CentOS 7, Java 17, Maven 3.9.11, Docker running, `mysql:8.4` image ID `bced325a4ab7` available locally.
