@@ -5,11 +5,18 @@ import com.bbs.bbs.bean.BBSUser;
 import com.bbs.bbs.bean.RecentCommentListEntity;
 import com.bbs.bbs.common.Constants;
 import com.bbs.bbs.service.*;
+import com.bbs.bbs.web.dto.user.ChangePasswordRequest;
+import com.bbs.bbs.web.dto.user.UpdateProfileRequest;
+import com.bbs.bbs.web.response.ApiResult;
 import com.bbs.util.Result;
 import com.bbs.util.ResultGenerator;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
@@ -88,35 +95,17 @@ public class BBSUserController {
         request.setAttribute("bbsUser", currentUser);
         return "user/set";
     }
-    @PostMapping("/updateUserInfo")
+    @PutMapping("/api/v1/me/profile")
     @ResponseBody
-    public Result<String> updateInfo(@RequestParam("nickName") String nickName,
-                             @RequestParam("userGender") int userGender,
-                             @RequestParam("location") String location,
-                             @RequestParam("introduce") String introduce,
-                             HttpSession httpSession) {
-        if (!StringUtils.hasLength(nickName)) {
-            return ResultGenerator.genFailResult("nickName参数错误");
-        }
-        if (userGender < 1 || userGender > 2) {
-            return ResultGenerator.genFailResult("userGender参数错误");
-        }
-        if (!StringUtils.hasLength(location)) {
-            return ResultGenerator.genFailResult("location参数错误");
-        }
-        if (!StringUtils.hasLength(introduce)) {
-            return ResultGenerator.genFailResult("introduce参数错误");
-        }
-        BBSUser bbsUser = (BBSUser) httpSession.getAttribute(Constants.USER_SESSION_KEY);
-        bbsUser.setNickName(nickName);
-        bbsUser.setGender(userGender == 1 ? "男" : "女");
-        bbsUser.setLocation(location);
-        bbsUser.setIntroduce(introduce);
-        if (bbsUserService.updateUserInfo(bbsUser, httpSession)) {
-            return ResultGenerator.genSuccessResult();
-        } else {
-            return ResultGenerator.genFailResult("修改失败");
-        }
+    public ApiResult<Void> updateProfile(
+            @AuthenticationPrincipal UserDetails principal,
+            @Valid @RequestBody UpdateProfileRequest request,
+            HttpSession session) {
+        BBSUser currentUser = bbsUserService.findActiveByLoginName(principal.getUsername());
+        bbsUserService.updateProfile(currentUser.getUserId(), request);
+        BBSUser refreshedUser = bbsUserService.findActiveByLoginName(principal.getUsername());
+        session.setAttribute(Constants.USER_SESSION_KEY, refreshedUser);
+        return ApiResult.success(null);
     }
     @PostMapping("/updateHeadImg")
     @ResponseBody
@@ -133,24 +122,16 @@ public class BBSUserController {
             return ResultGenerator.genFailResult("修改失败");
         }
     }
-    @PostMapping("/updatePassword")
+    @PutMapping("/api/v1/me/password")
     @ResponseBody
-    public Result<String> passwordUpdate(HttpServletRequest request,
-                                 @RequestParam("originalPassword") String originalPassword,
-                                 @RequestParam("newPassword") String newPassword) {
-        if (!StringUtils.hasLength(originalPassword)
-                || !StringUtils.hasLength(newPassword)) {
-            return ResultGenerator.genFailResult("参数不能为空");
-        }
-        BBSUser currentUser = (BBSUser) request.getSession()
-                .getAttribute(Constants.USER_SESSION_KEY);
-        if (bbsUserService.updatePassword(currentUser.getUserId(),
-                originalPassword, newPassword)) {
-            // 修改成功后清空 Session，前端跳转到登录页
-            request.getSession().removeAttribute(Constants.USER_SESSION_KEY);
-            return ResultGenerator.genSuccessResult();
-        } else {
-            return ResultGenerator.genFailResult("修改失败");
-        }
+    public ApiResult<Void> changePassword(
+            @AuthenticationPrincipal UserDetails principal,
+            @Valid @RequestBody ChangePasswordRequest request,
+            HttpServletRequest servletRequest) {
+        BBSUser currentUser = bbsUserService.findActiveByLoginName(principal.getUsername());
+        bbsUserService.changePassword(currentUser.getUserId(), request);
+        SecurityContextHolder.clearContext();
+        servletRequest.getSession(false).invalidate();
+        return ApiResult.success(null);
     }
 }

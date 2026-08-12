@@ -14,12 +14,14 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -43,7 +45,7 @@ class SecurityConfigTest {
             return "home";
         }
 
-        @PostMapping("/api/v1/me/profile")
+        @PutMapping("/api/v1/me/profile")
         void profile() {
         }
 
@@ -70,7 +72,7 @@ class SecurityConfigTest {
 
     @Test
     void profileWriteRequiresAuthentication() throws Exception {
-        mvc.perform(post("/api/v1/me/profile")
+        mvc.perform(put("/api/v1/me/profile")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
@@ -108,6 +110,15 @@ class SecurityConfigTest {
     @Test
     void protectedPageRedirectsAnonymousUserToLogin() throws Exception {
         mvc.perform(get("/myCenter"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/login"));
+    }
+
+    @Test
+    void logoutRequiresPostAndCsrf() throws Exception {
+        mvc.perform(post("/api/v1/auth/logout")
+                        .with(user("user").roles("USER"))
+                        .with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/login"));
     }

@@ -24,7 +24,7 @@
 - [x] Task 4: introduce validated web contracts and uniform errors
 - [x] Task 5: migrate account storage to BCrypt
 - [x] Task 6: replace login interceptor with Spring Security
-- [ ] Task 7: migrate authentication and profile endpoints to DTOs
+- [x] Task 7: migrate authentication and profile endpoints to DTOs
 - [ ] Task 8: complete Phase 1 verification
 
 ## Review log
@@ -90,6 +90,18 @@
 - Spring Security 7 uses `PathPatternRequestMatcher`; the removed `AntPathRequestMatcher` API from the original plan was not used.
 - Verification: 8 focused security tests passed. Full non-Docker regression, compilation and final diff checks are recorded at the Task 6 commit boundary.
 - Status: complete; 25 non-Docker regression tests and compilation passed before commit.
+
+### Task 7
+
+- RED: controller tests failed because the `/api/v1` DTO endpoints did not exist and registration still depended on `BBSUserServiceImp` directly.
+- Replaced the four legacy account write routes with JSON DTO endpoints for registration, login, profile updates and password changes; page GET routes and the legacy avatar update bridge remain compatible.
+- Registration and login verify the Session captcha case-insensitively and remove it only after success. Login authenticates through `AuthenticationManager`, changes the Session ID, persists the Spring Security context and then stores the temporary legacy user Session object.
+- Self-service profile and password operations resolve the user ID from the authenticated principal email; request-supplied IDs are ignored. Profile changes refresh the legacy Session user, while password changes invalidate the Session and require login again.
+- Removed state-changing `GET /logout`; logout now uses the Spring Security POST route with CSRF protection.
+- Updated login, registration and settings pages to send JSON to the new routes. The shared header supplies CSRF metadata and jQuery headers; avatar upload uses Layui upload headers instead of placing the token in the URL.
+- Review fixes aligned the browser password rule with the 8-72 character and 72 UTF-8 byte backend contract, prevented partially persisted authentication when compatibility user lookup fails, and added Session fixation protection.
+- Verification: 34 non-Docker tests passed with zero failures and errors; compilation and `git diff --check` passed. Docker-backed Flyway/context verification is still pending under Task 3.
+- Status: complete.
 
 ## Handoff notes
 

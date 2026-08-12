@@ -121,7 +121,7 @@
                                        lay-verify="required"
                                        autocomplete="off" class="layui-input">
                             </div>
-                            <div class="layui-form-mid layui-word-aux">6到20个字符</div>
+                            <div class="layui-form-mid layui-word-aux">8到72个字符</div>
                         </div>
                         <div class="layui-form-item">
                             <button class="layui-btn" key="set-mine" lay-filter="*" lay-submit onclick="updatePassword()">
@@ -143,11 +143,10 @@
 
 <script th:src="@{/layui/layui.js}"></script>
 <script th:src="@{/js/public.js}"></script>
-<script th:src="@{/js/ajaxupload/ajaxupload.js}"></script>
-
 <script type="text/javascript">
-    layui.use(['layer', 'element', 'jquery', 'form'], function () {
-        var layer = layui.layer, $ = layui.$, element = layui.element, form = layui.form;
+    layui.use(['layer', 'element', 'jquery', 'form', 'upload'], function () {
+        var layer = layui.layer, $ = layui.$, element = layui.element,
+            form = layui.form, upload = layui.upload;
         var device = layui.device();
         //阻止IE7以下访问
         if (device.ie && device.ie < 8) {
@@ -155,24 +154,29 @@
         }
 
         //图片上传插件初始化 用于头像上传
-        new AjaxUpload('#uploadHeadImg', {
-            action: '/uploadFile',
-            name: 'file',
-            autoSubmit: true,
-            responseType: "json",
-            onSubmit: function (file, extension) {
-                if (!(extension && /^(jpg|jpeg|png|gif)$/.test(extension.toLowerCase()))) {
-                    alert('只支持jpg、png、gif格式的文件！');
-                    return false;
+        var csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+        var csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+        var uploadHeaders = {};
+        if (csrfToken && csrfHeader) {
+            uploadHeaders[csrfHeader] = csrfToken;
+        }
+        upload.render({
+            elem: '#uploadHeadImg',
+            url: '/uploadFile',
+            field: 'file',
+            headers: uploadHeaders,
+            accept: 'images',
+            exts: 'jpg|jpeg|png|gif',
+            size: 1024,
+            done: function (result) {
+                if (result != null && result.resultCode === 200) {
+                    $("#userHeadImg").attr("src", result.data);
+                } else {
+                    layer.msg(result?.message || '头像上传失败');
                 }
             },
-            onComplete: function (file, r) {
-                if (r != null && r.resultCode == 200) {
-                    $("#userHeadImg").attr("src", r.data);
-                    return false;
-                } else {
-                    alert("error");
-                }
+            error: function () {
+                layer.msg('头像上传失败');
             }
         });
 
@@ -199,22 +203,28 @@
                 layer.alert('请输入个性签名!', {title: '提醒', skin: 'layui-layer-molv', icon: 2});
                 return;
             }
-            var params = $("#updateInfoForm").serialize();
-            var url = '/updateUserInfo';
+            var params = {
+                nickName: nickName,
+                gender: userGender === '1' ? '男' : '女',
+                location: location,
+                introduce: introduce
+            };
+            var url = '/api/v1/me/profile';
             $.ajax({
-                type: 'POST',//方法类型
+                type: 'PUT',
                 url: url,
-                data: params,
+                contentType: 'application/json',
+                data: JSON.stringify(params),
                 success: function (result) {
-                    if (result.resultCode == 200) {
+                    if (result.code === 'SUCCESS') {
                         layer.alert('修改成功!', {title: '信息', skin: 'layui-layer-molv', icon: 1});
                     } else {
                         layer.msg(result.message);
                     }
                     ;
                 },
-                error: function () {
-                    layer.alert('操作失败!', {title: '提醒', skin: 'layui-layer-molv', icon: 2});
+                error: function (xhr) {
+                    layer.alert(xhr.responseJSON?.message || '操作失败!', {title: '提醒', skin: 'layui-layer-molv', icon: 2});
                 }
             });
         }
@@ -249,35 +259,39 @@
         window.updatePassword = function () {
             var $ = layui.$;
             var originalPassword = $("#originalPassword").val();
-            if (!validPassword(originalPassword)) {
+            if (isNull(originalPassword) || originalPassword.length > 72) {
                 layer.alert('请输入正确的密码格式!', {title: '提醒', skin: 'layui-layer-molv', icon: 2});
                 return false;
             }
             var newPassword = $("#newPassword").val();
-            if (!validPassword(newPassword)) {
-                layer.alert('请输入正确的密码格式!', {title: '提醒', skin: 'layui-layer-molv', icon: 2});
+            var newPasswordBytes = new TextEncoder().encode(newPassword).length;
+            if (newPassword.length < 8 || newPassword.length > 72 || newPasswordBytes > 72) {
+                layer.alert('新密码需为8到72个字符，且不超过72个UTF-8字节!',
+                    {title: '提醒', skin: 'layui-layer-molv', icon: 2});
                 return false;
             }
-            if (newPassword != newPassword) {
-                layer.alert('确认密码与密码字段不相同!', {title: '提醒', skin: 'layui-layer-molv', icon: 2});
-                return false;
-            }
-            var params = $("#passwordForm").serialize();
-            var url = '/updatePassword';
+            var params = {
+                originalPassword: originalPassword,
+                newPassword: newPassword
+            };
+            var url = '/api/v1/me/password';
             $.ajax({
-                type: 'POST',//方法类型
+                type: 'PUT',
                 url: url,
-                data: params,
+                contentType: 'application/json',
+                data: JSON.stringify(params),
                 success: function (result) {
-                    if (result.resultCode == 200) {
-                        layer.alert('修改成功!', {title: '信息', skin: 'layui-layer-molv', icon: 1});
+                    if (result.code === 'SUCCESS') {
+                        layer.alert('修改成功，请重新登录!', {title: '信息', skin: 'layui-layer-molv', icon: 1}, function () {
+                            window.location.href = '/login';
+                        });
                     } else {
                         layer.msg(result.message);
                     }
                     ;
                 },
-                error: function () {
-                    layer.alert('操作失败!', {title: '提醒', skin: 'layui-layer-molv', icon: 2});
+                error: function (xhr) {
+                    layer.alert(xhr.responseJSON?.message || '操作失败!', {title: '提醒', skin: 'layui-layer-molv', icon: 2});
                 }
             });
         }

@@ -1,70 +1,78 @@
 package com.bbs.bbs.handller;
 
+import com.bbs.bbs.bean.BBSUser;
 import com.bbs.bbs.common.Constants;
-import com.bbs.bbs.common.ServiceResultEnum;
-import com.bbs.bbs.service.BBSUserServiceImp;
-import com.bbs.util.Result;
-import com.bbs.util.ResultGenerator;
-import jakarta.annotation.Resource;
-import jakarta.servlet.http.HttpSession;
+import com.bbs.bbs.service.BBSUserService;
+import com.bbs.bbs.web.dto.auth.LoginRequest;
+import com.bbs.bbs.web.error.BusinessException;
+import com.bbs.bbs.web.error.ErrorCode;
+import com.bbs.bbs.web.response.ApiResult;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Controller;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-/**
- * @Author qq
- * @Description
- * @Date 2026-03-23 20:30:55
- * @Version 1.0
- */
 @Controller
 public class loginController {
-    @Resource
-    private BBSUserServiceImp bbsUserServiceImp;
-    @GetMapping(value = {"login"})
-    public String loginPage(){
+    private final BBSUserService userService;
+    private final AuthenticationManager authenticationManager;
+    private final SecurityContextRepository securityContextRepository;
+
+    public loginController(BBSUserService userService,
+                           AuthenticationManager authenticationManager,
+                           SecurityContextRepository securityContextRepository) {
+        this.userService = userService;
+        this.authenticationManager = authenticationManager;
+        this.securityContextRepository = securityContextRepository;
+    }
+
+    @GetMapping("/login")
+    public String loginPage() {
         return "user/login";
     }
-    @PostMapping("/login")
+
+    @PostMapping("/api/v1/auth/login")
     @ResponseBody
-    public Result<String> login(@RequestParam("loginName") String loginName,
-                        @RequestParam("password") String password
-            , @RequestParam("verifyCode") String verifyCode
-            , HttpSession httpSession){
-        //参数校验
-        if (!StringUtils.hasLength(loginName)) {
-            return ResultGenerator.genFailResult(
-                    ServiceResultEnum.LOGIN_NAME_NULL.getResult());
-        }
-        if (!StringUtils.hasLength(password)) {
-            return ResultGenerator.genFailResult(
-                    ServiceResultEnum.LOGIN_PASSWORD_NULL.getResult());
-        }
-        //校验验证码TOdo
-        if (!StringUtils.hasLength(verifyCode)) {
-            return ResultGenerator.genFailResult(
-                    ServiceResultEnum.LOGIN_VERIFY_CODE_NULL.getResult());
-        }
-        //校验验证码
-        String verifyCodeInSession = (String) httpSession.getAttribute(Constants.VERIFY_CODE_KEY);
-        if(!StringUtils.hasLength(verifyCodeInSession)){
-            return ResultGenerator.genFailResult(ServiceResultEnum.SYSTEM_ERROR.getResult());
-        }
-        if(!verifyCodeInSession.equals(verifyCode.toLowerCase())) {
-            return ResultGenerator.genFailResult(ServiceResultEnum.LOGIN_VERIFY_CODE_ERROR.getResult());
-        }
-        String result = bbsUserServiceImp.login(loginName, password, httpSession);
-        if(ServiceResultEnum.LOGIN_SUCCESS.getResult().equals(result)){
-            return ResultGenerator.genSuccessResult(result);
-        }
-        return ResultGenerator.genFailResult(result);
+    public ApiResult<Void> login(@Valid @RequestBody LoginRequest request,
+                                 HttpServletRequest servletRequest,
+                                 HttpServletResponse servletResponse) {
+        jakarta.servlet.http.HttpSession session = servletRequest.getSession();
+        verifyCaptcha(session, request.verifyCode());
+
+        Authentication authentication = authenticationManager.authenticate(
+                UsernamePasswordAuthenticationToken.unauthenticated(
+                        request.loginName(), request.password()));
+        BBSUser user = userService.findActiveByLoginName(request.loginName());
+        userService.recordSuccessfulLogin(user.getUserId());
+        servletRequest.changeSessionId();
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(authentication);
+        SecurityContextHolder.setContext(context);
+        securityContextRepository.saveContext(
+                context, servletRequest, servletResponse);
+
+        session.setAttribute(Constants.USER_SESSION_KEY, user);
+        session.removeAttribute(Constants.VERIFY_CODE_KEY);
+        return ApiResult.success(null);
     }
-    @GetMapping("/logout")
-    public String logOut(HttpSession httpSession){
-       httpSession.removeAttribute(Constants.USER_SESSION_KEY);
-        return "redirect:/login";
+
+    private void verifyCaptcha(jakarta.servlet.http.HttpSession session,
+                               String submittedCode) {
+        Object stored = session.getAttribute(Constants.VERIFY_CODE_KEY);
+        if (!(stored instanceof String expected)
+                || !expected.equalsIgnoreCase(submittedCode)) {
+            throw new BusinessException(
+                    ErrorCode.VALIDATION_ERROR, "验证码错误");
+        }
     }
 }
