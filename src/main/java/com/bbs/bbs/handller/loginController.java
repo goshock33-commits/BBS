@@ -5,18 +5,14 @@ import com.bbs.bbs.common.ServiceResultEnum;
 import com.bbs.bbs.service.BBSUserServiceImp;
 import com.bbs.util.Result;
 import com.bbs.util.ResultGenerator;
-import com.bbs.util.SHA256Util;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
-
-import java.io.File;
 
 /**
  * @Author qq
@@ -60,9 +56,7 @@ public class loginController {
         if(!verifyCodeInSession.equals(verifyCode.toLowerCase())) {
             return ResultGenerator.genFailResult(ServiceResultEnum.LOGIN_VERIFY_CODE_ERROR.getResult());
         }
-        //加密 密码
-        String passwordMD5 = SHA256Util.SHA256Encode(password,"UTF-8");
-        String result = bbsUserServiceImp.login(loginName, passwordMD5, httpSession);
+        String result = bbsUserServiceImp.login(loginName, password, httpSession);
         if(ServiceResultEnum.LOGIN_SUCCESS.getResult().equals(result)){
             return ResultGenerator.genSuccessResult(result);
         }

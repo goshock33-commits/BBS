@@ -1,8 +1,10 @@
 package com.bbs.bbs.bean;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import lombok.ToString;
 
@@ -19,7 +21,12 @@ public class BBSUser {
 
     private String loginName;
 
-    private String passwordMd5;
+    @TableField("password_hash")
+    @JsonIgnore
+    @ToString.Exclude
+    private String passwordHash;
+
+    private String role;
 
     private String nickName;
 
@@ -36,4 +43,6 @@ public class BBSUser {
     private Date lastLoginTime;
 
     private Date createTime;
+
+    private Date updateTime;
 }

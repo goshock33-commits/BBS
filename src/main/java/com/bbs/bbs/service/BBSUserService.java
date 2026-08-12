@@ -1,6 +1,9 @@
 package com.bbs.bbs.service;
 
 import com.bbs.bbs.bean.BBSUser;
+import com.bbs.bbs.web.dto.auth.RegisterRequest;
+import com.bbs.bbs.web.dto.user.ChangePasswordRequest;
+import com.bbs.bbs.web.dto.user.UpdateProfileRequest;
 import jakarta.servlet.http.HttpSession;
 
 /**
@@ -10,6 +13,16 @@ import jakarta.servlet.http.HttpSession;
  * @Version 1.0
  */
 public interface BBSUserService {
+    void register(RegisterRequest request);
+
+    BBSUser findActiveByLoginName(String loginName);
+
+    void recordSuccessfulLogin(Long userId);
+
+    void updateProfile(Long currentUserId, UpdateProfileRequest request);
+
+    void changePassword(Long currentUserId, ChangePasswordRequest request);
+
     /**
      * 用户注册
      *
@@ -23,7 +36,7 @@ public interface BBSUserService {
     /**
      * 用户登录（第05课实现）
      */
-    String login(String loginName, String passwordMD5, HttpSession httpSession);
+    String login(String loginName, String password, HttpSession httpSession);
 
     /**
      * 根据 ID 查询用户（第10课实现）

@@ -3,17 +3,20 @@ package com.bbs.bbs.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.bbs.bbs.Mapper.BBSUserMapper;
 import com.bbs.bbs.bean.BBSUser;
-import com.bbs.bbs.bean.RedisUtil;
 import com.bbs.bbs.common.Constants;
 import com.bbs.bbs.common.ServiceResultEnum;
-import com.bbs.util.SHA256Util;
 import com.bbs.util.SystemUtil;
-import jakarta.annotation.Resource;
+import com.bbs.bbs.web.dto.auth.RegisterRequest;
+import com.bbs.bbs.web.dto.user.ChangePasswordRequest;
+import com.bbs.bbs.web.dto.user.UpdateProfileRequest;
+import com.bbs.bbs.web.error.BusinessException;
+import com.bbs.bbs.web.error.ErrorCode;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
+import java.nio.charset.StandardCharsets;
 
 /**
  * @Author qq
@@ -23,68 +26,122 @@ import java.util.Date;
  */
 @Service
 public class BBSUserServiceImp implements BBSUserService {
-    @Autowired
-    private BBSUserMapper bbsUserMapper;
-    @Resource
-    private RedisUtil redisUtil;
+    private final BBSUserMapper bbsUserMapper;
+    private final PasswordEncoder passwordEncoder;
+
+    public BBSUserServiceImp(BBSUserMapper bbsUserMapper,
+                             PasswordEncoder passwordEncoder) {
+        this.bbsUserMapper = bbsUserMapper;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    @Override
+    public void register(RegisterRequest request) {
+        validateBcryptPassword(request.password());
+        String normalizedLoginName = normalizeLoginName(request.loginName());
+        LambdaQueryWrapper<BBSUser> query = new LambdaQueryWrapper<>();
+        query.eq(BBSUser::getLoginName, normalizedLoginName);
+        if (bbsUserMapper.selectCount(query) > 0) {
+            throw new BusinessException(
+                    ErrorCode.DUPLICATE_LOGIN_NAME, "该邮箱已注册");
+        }
+
+        BBSUser user = new BBSUser();
+        user.setLoginName(normalizedLoginName);
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setNickName(request.nickName().trim());
+        user.setHeadImgUrl("/images/avatar/default.png");
+        user.setGender("未知");
+        user.setLocation("未知");
+        user.setIntroduce("");
+        user.setRole("USER");
+        user.setUserStatus((byte) 0);
+        user.setCreateTime(new Date());
+        if (bbsUserMapper.insert(user) <= 0) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "注册失败");
+        }
+    }
+
+    @Override
+    public BBSUser findActiveByLoginName(String loginName) {
+        LambdaQueryWrapper<BBSUser> query = new LambdaQueryWrapper<>();
+        query.eq(BBSUser::getLoginName, normalizeLoginName(loginName));
+        BBSUser user = bbsUserMapper.selectOne(query);
+        if (user == null) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_CREDENTIALS, "用户名或密码错误");
+        }
+        if (user.getUserStatus() == null || user.getUserStatus() != 0) {
+            throw new BusinessException(
+                    ErrorCode.ACCOUNT_DISABLED, "账号已被禁用");
+        }
+        return user;
+    }
+
+    @Override
+    public void recordSuccessfulLogin(Long userId) {
+        BBSUser patch = new BBSUser();
+        patch.setUserId(userId);
+        patch.setLastLoginTime(new Date());
+        bbsUserMapper.updateById(patch);
+    }
+
+    @Override
+    public void updateProfile(Long userId, UpdateProfileRequest request) {
+        BBSUser user = requireActiveUser(userId);
+        user.setNickName(request.nickName().trim());
+        user.setGender(request.gender());
+        user.setLocation(request.location().trim());
+        user.setIntroduce(request.introduce() == null
+                ? "" : request.introduce().trim());
+        requireSuccessfulUpdate(bbsUserMapper.updateById(user), "个人资料修改失败");
+    }
+
+    @Override
+    public void changePassword(Long userId, ChangePasswordRequest request) {
+        BBSUser user = requireActiveUser(userId);
+        if (!passwordEncoder.matches(
+                request.originalPassword(), user.getPasswordHash())) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_CREDENTIALS, "原密码错误");
+        }
+        validateBcryptPassword(request.newPassword());
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        requireSuccessfulUpdate(bbsUserMapper.updateById(user), "密码修改失败");
+    }
+
     @Override
     public String register(String loginName, String password, String nickName) {
-        // 检查登录名是否已存在
-        LambdaQueryWrapper<BBSUser> Wrapper = new LambdaQueryWrapper<>();
-        Wrapper.eq(BBSUser::getLoginName, loginName);
-        BBSUser user = bbsUserMapper.selectOne(Wrapper);
-        if (user != null) {
-            return ServiceResultEnum.SAME_LOGIN_NAME_EXIST.getResult();
-        }
-        // 不存在 注册
-        else {
-            try{
-                BBSUser newUser = new BBSUser();
-                newUser.setLoginName(loginName);
-                newUser.setNickName(nickName);
-                newUser.setHeadImgUrl("/images/avatar/default.png"); // 默认头像
-                newUser.setIntroduce("这个人很懒，什么都没留下~");     // 默认简介
-                newUser.setLocation("未知");
-                newUser.setGender("未知");
-                String passWord = SHA256Util.SHA256Encode(password,"UTF-8");
-                newUser.setPasswordMd5(passWord);
-                if(bbsUserMapper.insert(newUser) > 0){
-                    return ServiceResultEnum.REGISTER_SUCCESS.getResult();
-                }
-                else{
-                    return ServiceResultEnum.REGISTER_ERROR.getResult();
-                }
+        try {
+            register(new RegisterRequest(loginName, password, nickName, "compat"));
+            return ServiceResultEnum.REGISTER_SUCCESS.getResult();
+        } catch (BusinessException exception) {
+            if (exception.getErrorCode() == ErrorCode.DUPLICATE_LOGIN_NAME) {
+                return ServiceResultEnum.SAME_LOGIN_NAME_EXIST.getResult();
             }
-                catch(Exception e){
-                    return ServiceResultEnum.OTHER.getResult()+"原因："+e.getMessage();
-                }
-
+            return ServiceResultEnum.REGISTER_ERROR.getResult();
         }
-
     }
+
     @Override
-    public String login(String loginName, String passwordMD5, HttpSession httpSession) {
-        LambdaQueryWrapper<BBSUser> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(BBSUser::getLoginName, loginName).eq(BBSUser::getPasswordMd5, passwordMD5);
-        BBSUser user = bbsUserMapper.selectOne(wrapper);
-        if(user != null&&httpSession!=null){
-            httpSession.setAttribute(Constants.USER_SESSION_KEY,user);
-            //更新用户登录时间
-            user.setLastLoginTime(new Date());
-            bbsUserMapper.updateById(user);
+    public String login(String loginName, String password, HttpSession httpSession) {
+        try {
+            BBSUser user = findActiveByLoginName(loginName);
+            if (httpSession == null
+                    || !passwordEncoder.matches(password, user.getPasswordHash())) {
+                return ServiceResultEnum.LOGIN_ERROR.getResult();
+            }
+            httpSession.setAttribute(Constants.USER_SESSION_KEY, user);
+            recordSuccessfulLogin(user.getUserId());
             return ServiceResultEnum.LOGIN_SUCCESS.getResult();
+        } catch (BusinessException exception) {
+            return ServiceResultEnum.LOGIN_ERROR.getResult();
         }
-        return ServiceResultEnum.LOGIN_ERROR.getResult();
     }
 
     @Override
     public BBSUser getUserById(Long userId) {
-        BBSUser user=(BBSUser)redisUtil.get("user:"+userId);
-        if(user == null){
-            user = bbsUserMapper.selectById(userId);
-            redisUtil.set("user:"+userId,user);
-        }
-        return user;
+        return bbsUserMapper.selectById(userId);
     }
 
 
@@ -99,7 +156,7 @@ public class BBSUserServiceImp implements BBSUserService {
                 userFromDB.setLocation(SystemUtil.cleanString(bbsUser.getLocation()));
                 userFromDB.setGender(SystemUtil.cleanString(bbsUser.getGender()));
                 userFromDB.setNickName(SystemUtil.cleanString(bbsUser.getNickName()));
-                if (redisUtil.set("user:"+userFromDB.getUserId(),userFromDB)&&bbsUserMapper.updateById(userFromDB) > 0) {
+                if (bbsUserMapper.updateById(userFromDB) > 0) {
                     // 更新成功后同步更新 Session 中的用户信息
                     httpSession.setAttribute(Constants.USER_SESSION_KEY, userFromDB);
                     return true;
@@ -113,7 +170,7 @@ public class BBSUserServiceImp implements BBSUserService {
         BBSUser userFromDB = bbsUserMapper.selectById(bbsUser.getUserId());
         if (userFromDB != null && userFromDB.getUserStatus().intValue() == 0) {
             userFromDB.setHeadImgUrl(bbsUser.getHeadImgUrl());
-            if (redisUtil.set("user:"+userFromDB.getUserId(),userFromDB)&&bbsUserMapper.updateById(userFromDB) > 0) {
+            if (bbsUserMapper.updateById(userFromDB) > 0) {
                 httpSession.setAttribute(Constants.USER_SESSION_KEY, userFromDB);
                 return true;
             }
@@ -123,18 +180,42 @@ public class BBSUserServiceImp implements BBSUserService {
 
     @Override
     public Boolean updatePassword(Long userId, String originalPassword, String newPassword) {
-        BBSUser bbsUser = bbsUserMapper.selectById(userId);
-        if (bbsUser != null && bbsUser.getUserStatus().intValue() == 0) {
-            String originalPasswordMd5 = SHA256Util.SHA256Encode(originalPassword, "UTF-8");
-            String newPasswordMd5 = SHA256Util.SHA256Encode(newPassword, "UTF-8");
-            // 比较原密码是否正确
-            if (originalPasswordMd5.equals(bbsUser.getPasswordMd5())) {
-                bbsUser.setPasswordMd5(newPasswordMd5);
-                if (redisUtil.set("user:"+bbsUser.getUserId(),bbsUser)&&bbsUserMapper.updateById(bbsUser) > 0) {
-                    return true;
-                }
-            }
+        try {
+            changePassword(userId,
+                    new ChangePasswordRequest(originalPassword, newPassword));
+            return true;
+        } catch (BusinessException exception) {
+            return false;
         }
-        return false;
+    }
+
+    private BBSUser requireActiveUser(Long userId) {
+        BBSUser user = bbsUserMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(
+                    ErrorCode.RESOURCE_NOT_FOUND, "用户不存在");
+        }
+        if (user.getUserStatus() == null || user.getUserStatus() != 0) {
+            throw new BusinessException(
+                    ErrorCode.ACCOUNT_DISABLED, "账号已被禁用");
+        }
+        return user;
+    }
+
+    private String normalizeLoginName(String loginName) {
+        return loginName.trim().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    private void validateBcryptPassword(String password) {
+        if (password.getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw new BusinessException(
+                    ErrorCode.VALIDATION_ERROR, "密码不能超过 72 个 UTF-8 字节");
+        }
+    }
+
+    private void requireSuccessfulUpdate(int updatedRows, String message) {
+        if (updatedRows <= 0) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, message);
+        }
     }
 }

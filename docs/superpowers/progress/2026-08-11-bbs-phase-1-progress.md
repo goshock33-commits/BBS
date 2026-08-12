@@ -22,7 +22,7 @@
 - [x] Task 2: repair homepage pagination with tests
 - [ ] Task 3: add environment-backed configuration and Flyway baseline (integration verification pending Docker)
 - [x] Task 4: introduce validated web contracts and uniform errors
-- [ ] Task 5: migrate account storage to BCrypt
+- [x] Task 5: migrate account storage to BCrypt
 - [ ] Task 6: replace login interceptor with Spring Security
 - [ ] Task 7: migrate authentication and profile endpoints to DTOs
 - [ ] Task 8: complete Phase 1 verification
@@ -67,6 +67,17 @@
 - Isolated the MVC slice from the application's global `@MapperScan` using an explicit test context.
 - Verification: `GlobalExceptionHandlerTest` and `BBSPostServiceImplTest` ran 3 tests with 0 failures and 0 errors.
 - Status: complete; independent reviewers remain unavailable in this session, so controller review is recorded instead.
+
+### Task 5
+
+- RED: account service tests initially failed because the BCrypt constructor, DTO methods, `passwordHash` and `role` mapping were absent.
+- Added a single BCrypt encoder bean with cost 12; registration, login and password changes now use plaintext-to-BCrypt verification without SHA-256.
+- Mapped `password_hash`, `role` and `update_time`; password hashes are excluded from `toString` and Jackson/Redis JSON serialization.
+- Review RED: 5 focused failures reproduced Redis JSON hash exposure, zero-row update success, legacy password-update false positives and the BCrypt 72-byte UTF-8 boundary.
+- Review fixes: account reads and writes no longer use Redis in Phase 1, profile/password updates require a successful database write, and passwords over 72 UTF-8 bytes return `VALIDATION_ERROR` before BCrypt encoding.
+- Verification: 17 non-Docker regression tests passed across account services, password configuration, user serialization, homepage pagination and global errors; compilation and final diff checks are recorded at the Task 5 commit boundary.
+- Existing SHA-256 hashes cannot be converted to BCrypt because hashes are irreversible; existing accounts require a later reset or login-time migration policy.
+- Status: complete. Task 3 remains pending learner-run Linux Docker verification and still gates final Task 8 verification.
 
 ## Handoff notes
 
