@@ -103,6 +103,14 @@
 - Verification: 34 non-Docker tests passed with zero failures and errors; compilation and `git diff --check` passed. Docker-backed Flyway/context verification is still pending under Task 3.
 - Status: complete.
 
+### Task 8
+
+- Added `.env.example` with local database, Redis and server variables; no real credentials are stored in Git.
+- Added `HELP.md` with MySQL bootstrap SQL, PowerShell environment setup, local startup, non-Docker regression commands and the Linux Docker integration handoff.
+- Windows verification available so far: 34 non-Docker tests and compilation pass; `git diff --check` reports no errors.
+- Remaining: run `FlywayMigrationTest` and `BbsApplicationTests` in the learner-managed Linux Docker environment, then start against an empty MySQL schema and perform the Phase 1 smoke checks.
+- Status: in progress; Task 3 Docker verification still gates completion.
+
 ## Handoff notes
 
 - Read the full approved spec at `docs/superpowers/specs/2026-08-11-bbs-requirements-design.md`.
