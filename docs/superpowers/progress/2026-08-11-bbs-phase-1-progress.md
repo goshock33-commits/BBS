@@ -23,7 +23,7 @@
 - [ ] Task 3: add environment-backed configuration and Flyway baseline (integration verification pending Docker)
 - [x] Task 4: introduce validated web contracts and uniform errors
 - [x] Task 5: migrate account storage to BCrypt
-- [ ] Task 6: replace login interceptor with Spring Security
+- [x] Task 6: replace login interceptor with Spring Security
 - [ ] Task 7: migrate authentication and profile endpoints to DTOs
 - [ ] Task 8: complete Phase 1 verification
 
@@ -78,6 +78,18 @@
 - Verification: 17 non-Docker regression tests passed across account services, password configuration, user serialization, homepage pagination and global errors; compilation and final diff checks are recorded at the Task 5 commit boundary.
 - Existing SHA-256 hashes cannot be converted to BCrypt because hashes are irreversible; existing accounts require a later reset or login-time migration policy.
 - Status: complete. Task 3 remains pending learner-run Linux Docker verification and still gates final Task 8 verification.
+
+### Task 6
+
+- RED: authorization tests initially failed because `SecurityConfig` and `BbsUserDetailsService` did not exist.
+- Added database-backed Spring Security users with normalized email, BCrypt hash, `USER`/`ADMIN` authorities and disabled-account mapping.
+- Added a session-based security chain: public browsing/authentication routes, authenticated personal and write routes, and `ADMIN`-only management routes.
+- All non-authentication `/api/v1/**` routes require a logged-in user; anonymous APIs return 401, protected pages redirect to `/login`, and role failures return 403.
+- CSRF remains enabled. A review RED test proved a second form-login processing URL could bypass the project captcha, so Spring's form filter was removed; Task 7 will authenticate the JSON captcha flow through `AuthenticationManager`.
+- Deleted `BBSLoginInterceptor` and removed MVC interceptor registration; the upload resource mapping remains.
+- Spring Security 7 uses `PathPatternRequestMatcher`; the removed `AntPathRequestMatcher` API from the original plan was not used.
+- Verification: 8 focused security tests passed. Full non-Docker regression, compilation and final diff checks are recorded at the Task 6 commit boundary.
+- Status: complete; 25 non-Docker regression tests and compilation passed before commit.
 
 ## Handoff notes
 
