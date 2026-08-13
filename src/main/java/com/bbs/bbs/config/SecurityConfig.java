@@ -3,6 +3,7 @@ package com.bbs.bbs.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -36,6 +37,9 @@ public class SecurityConfig {
                                 "/common/captcha", "/api/v1/auth/login",
                                 "/api/v1/auth/register", "/css/**", "/js/**",
                                 "/images/**", "/layui/**", "/upload/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/posts",
+                                "/api/v1/posts/*", "/api/v1/posts/*/comments",
+                                "/api/v1/categories").permitAll()
                         .requestMatchers("/admin", "/admin/**", "/api/v1/admin/**")
                         .hasRole("ADMIN")
                         .requestMatchers("/me/**", "/api/v1/**",
