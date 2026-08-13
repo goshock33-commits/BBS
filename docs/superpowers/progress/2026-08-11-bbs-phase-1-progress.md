@@ -25,7 +25,7 @@
 - [x] Task 5: migrate account storage to BCrypt
 - [x] Task 6: replace login interceptor with Spring Security
 - [x] Task 7: migrate authentication and profile endpoints to DTOs
-- [ ] Task 8: complete Phase 1 verification
+- [x] Task 8: complete Phase 1 verification
 
 ## Review log
 
@@ -111,12 +111,16 @@
 
 ### Task 8
 
-- Added `.env.example` with local database, Redis and server variables; no real credentials are stored in Git.
-- Added `HELP.md` with MySQL bootstrap SQL, PowerShell environment setup, local startup, non-Docker regression commands and the Linux Docker integration handoff.
-- Windows verification: 34 non-Docker tests pass with zero failures and errors; compilation and `git diff --check` pass.
-- Linux Docker integration verification: `FlywayMigrationTest` and `BbsApplicationTests` pass against Testcontainers MySQL 8.4; Flyway V1 runs successfully against an empty schema.
-- Remaining: run the complete `mvn verify` lifecycle, start the application against an empty local MySQL database, and perform the Phase 1 smoke checks listed in the implementation plan before closing Phase 1.
-- Status: in progress; Task 3 no longer blocks completion.
+- Added `.env.example` with local database, Redis, server and cross-platform upload variables; no real credentials are stored in Git.
+- Added `HELP.md` with MySQL bootstrap SQL, PowerShell/Linux environment setup, local startup, upload directory guidance, non-Docker regression commands and the Linux Docker integration handoff.
+- Linux `mvn verify` completed with `BUILD SUCCESS` before the upload portability fix; the Docker-backed Flyway/context tests passed against MySQL 8.4.
+- Windows verification after the upload fix: 36 non-Docker tests pass with zero failures and zero errors; compilation and `git diff --check` pass.
+- Empty-database application startup succeeded after setting the MySQL 8 local connection parameters; Flyway V1 applied and the application listened on 8080.
+- Manual smoke checks passed: `/`, `/login` and `/register` returned 200; registration and Session login worked; USER access to `/admin` returned 403; profile changes persisted; BCrypt hashes use the `$2a$` prefix and length 60; password change invalidated the Session; old-password login failed and new-password login succeeded.
+- CentOS networking diagnosis confirmed the VM address `192.168.71.129`; opening TCP 8080 in firewalld allowed Windows access to the application.
+- Upload portability fix commit: `67600e2 fix: make upload storage cross-platform`. CentOS pulled this commit, restarted with `BBS_UPLOAD_DIR=/root/BBS1/upload`, and successfully uploaded an image; the returned `/upload/...` resource was accessible.
+- Final Linux verification at `67600e2`: complete `mvn verify` returned `BUILD SUCCESS` with zero test failures and errors.
+- Status: complete. Phase 1 is verified; do not merge until the branch-finishing choice is made.
 
 ## Handoff notes
 
@@ -127,7 +131,7 @@
 - Do not dispatch parallel implementers; each task uses a fresh implementer and sequential reviews.
 - The PowerShell profile currently prints a Conda `Invoke-Expression` parse error after commands; rely on the command exit code and primary output because Git/Maven commands themselves still execute.
 - Current branch and worktree: `phase1/baseline-security` at `D:\JavaWorkSpace\BBS\.worktrees\phase1-baseline-security`.
-- Latest implementation fix: `f5b9c39 fix: enable Flyway auto-configuration`; it is present on `origin/phase1/baseline-security`. Inspect `HEAD` for the progress-document update commit before continuing.
+- Latest implementation fix: `67600e2 fix: make upload storage cross-platform`; it is present on `origin/phase1/baseline-security`.
 - `main` remains at the original baseline and Phase 1 has not been merged. Do not merge until Task 8 is closed and the branch-finishing workflow has been followed.
 - Linux and Docker commands are learner-owned: explain the exact commands and their purpose, then wait for the learner to execute them and provide output. Do not assume remote control of the VM.
 - CentOS project checkout: `/root/BBS1`, using local branch `phase1/baseline-security`. `git fetch origin` updates the remote-tracking branch; use `git pull --ff-only origin phase1/baseline-security` to advance the existing local branch.
