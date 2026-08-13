@@ -2,6 +2,7 @@ package com.bbs.bbs.handller;
 
 import com.bbs.bbs.common.Constants;
 import com.bbs.bbs.common.ServiceResultEnum;
+import com.bbs.bbs.upload.UploadStorage;
 import com.bbs.util.Result;
 import com.bbs.util.ResultGenerator;
 import org.springframework.stereotype.Controller;
@@ -14,8 +15,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 
-import java.io.File;
-import java.io.IOException;
 import java.net.URI;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -28,6 +27,12 @@ import java.util.*;
  */
 @Controller
 public class uploadController {
+    private final UploadStorage uploadStorage;
+
+    public uploadController(UploadStorage uploadStorage) {
+        this.uploadStorage = uploadStorage;
+    }
+
     @PostMapping("/uploadFile")
     @ResponseBody
     //单文件上传
@@ -45,15 +50,8 @@ public class uploadController {
         }
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
         String newFileName = sdf.format(new Date()) + UUID.randomUUID() + "_" + suffix;
-        File dir = new File(Constants.FILE_UPLOAD_DIC);
-        File targetFile = new File(dir, newFileName);
-        if (!dir.exists()) {
-            if (!dir.mkdirs()) {
-                return ResultGenerator.genFailResult(ServiceResultEnum.SYSTEM_ERROR.getResult() + "创建上传目录失败");
-            }
-        }
         try {
-            file.transferTo(targetFile);
+            uploadStorage.store(file, newFileName);
             // 构建可访问的 URL 并返回
             Result<String> resultSuccess = ResultGenerator.genSuccessResult();
             resultSuccess.setData(SystemUtil.getHost(new URI(request.getRequestURL() + "")) + "/upload/" + newFileName);
@@ -75,10 +73,6 @@ public class uploadController {
             return ResultGenerator.genFailResult("最多上传5个文件");
         }
         List<String> urls = new ArrayList<>();
-        File dir = new File(Constants.FILE_UPLOAD_DIC);
-        if (!dir.exists() && !dir.mkdirs()) {
-            return ResultGenerator.genFailResult(ServiceResultEnum.SYSTEM_ERROR.getResult() + "创建上传目录失败");
-        }
         try {
             for (MultipartFile file : files) {
                 if (file.getSize() > 10 * 1024 * 1024) { // 10MB
@@ -94,8 +88,7 @@ public class uploadController {
                 }
                 SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
                 String newFileName = sdf.format(new Date()) + UUID.randomUUID() + "_" + suffix;
-                File targetFile = new File(dir, newFileName);
-                file.transferTo(targetFile);
+                uploadStorage.store(file, newFileName);
                 // 构建可访问的 URL
                 String url = SystemUtil.getHost(new URI(request.getRequestURL() + "")) + "/upload/" + newFileName;
                 urls.add(url);

@@ -1,6 +1,6 @@
 package com.bbs.bbs.config;
 
-import com.bbs.bbs.common.Constants;
+import com.bbs.bbs.upload.UploadStorage;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -13,11 +13,16 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  */
 @Configuration
 public class MyBBSWebMvcConfigurer implements WebMvcConfigurer {
-    //这行配置的含义：当浏览器请求 `/upload/xxx.jpg` 时，Spring 会去 `D:\\upload\\` 目录下查找 `xxx.jpg` 文件并返回给浏览器显示
+    private final UploadStorage uploadStorage;
+
+    public MyBBSWebMvcConfigurer(UploadStorage uploadStorage) {
+        this.uploadStorage = uploadStorage;
+    }
+
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // 上传文件的静态资源映射（第06课会用到，这里先配好）
         registry.addResourceHandler("/upload/**")
-                .addResourceLocations("file:" + Constants.FILE_UPLOAD_DIC);
+                .addResourceLocations(uploadStorage.resourceLocation());
     }
 }

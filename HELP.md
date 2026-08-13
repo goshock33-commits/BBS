@@ -22,14 +22,17 @@ FLUSH PRIVILEGES;
 不要把真实密码提交到 Git。`.env.example` 仅提供变量名和示例值；PowerShell 中可这样设置当前终端：
 
 ```powershell
-$env:DB_URL='jdbc:mysql://localhost:3306/my_bbs_db?useUnicode=true&serverTimezone=UTC&characterEncoding=utf8&useSSL=false'
+$env:DB_URL='jdbc:mysql://localhost:3306/my_bbs_db?useUnicode=true&serverTimezone=UTC&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true'
 $env:DB_USERNAME='bbs'
 $env:DB_PASSWORD='change-me'
 $env:REDIS_HOST='localhost'
 $env:REDIS_PORT='6379'
 $env:REDIS_PASSWORD=''
 $env:SERVER_PORT='8080'
+$env:BBS_UPLOAD_DIR='D:\upload'
 ```
+
+`allowPublicKeyRetrieval=true` 仅用于关闭 TLS 的本地 MySQL 8 开发连接；生产环境应启用 TLS。上传目录必须是运行应用的用户可写目录，未设置 `BBS_UPLOAD_DIR` 时默认使用当前项目下的 `upload` 目录。
 
 ## 启动应用
 
@@ -38,6 +41,14 @@ mvn.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
 启动成功后访问 `http://localhost:8080/`。Flyway 会在空数据库中创建 Phase 1 表结构。
+
+CentOS 本地运行可使用独立上传目录：
+
+```bash
+export BBS_UPLOAD_DIR='/opt/image/upload'
+```
+
+请先确保启动应用的用户对该目录有写权限；也可以省略该变量，使用项目目录下的 `upload`。
 
 ## Windows 非 Docker 回归
 
