@@ -4,8 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.bbs.bbs.Mapper.BBSCategoryMapper;
 import com.bbs.bbs.bean.BBSPostCategory;
 import jakarta.annotation.Resource;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import com.bbs.bbs.web.error.BusinessException;
+import com.bbs.bbs.web.error.ErrorCode;
 
 import java.util.List;
 
@@ -17,14 +18,35 @@ import java.util.List;
  */
 @Service
 public class BBSPostCategoryServiceImp implements BBSPostCategoryService {
-    @Resource
-    private BBSCategoryMapper baseMapper;
+    private final BBSCategoryMapper baseMapper;
+
+    public BBSPostCategoryServiceImp(BBSCategoryMapper baseMapper) {
+        this.baseMapper = baseMapper;
+    }
+
+    public List<BBSPostCategory> getEnabledCategories() {
+        LambdaQueryWrapper<BBSPostCategory> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(BBSPostCategory::getEnabled, true)
+                .orderByDesc(BBSPostCategory::getCategoryRank);
+        return baseMapper.selectList(queryWrapper).stream()
+                .filter(category -> Boolean.TRUE.equals(category.getEnabled()))
+                .toList();
+    }
+
+    public BBSPostCategory requireEnabledCategory(Integer categoryId) {
+        BBSPostCategory category = baseMapper.selectById(categoryId);
+        if (category == null) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "分类不存在");
+        }
+        if (!Boolean.TRUE.equals(category.getEnabled())) {
+            throw new BusinessException(ErrorCode.CATEGORY_DISABLED, "分类已停用");
+        }
+        return category;
+    }
 
     @Override
     public List<BBSPostCategory> getBBSPostCategories() {
-        LambdaQueryWrapper<BBSPostCategory> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.orderByDesc(BBSPostCategory::getCategoryRank);
-        return baseMapper.selectList(queryWrapper);
+        return getEnabledCategories();
     }
 
     @Override

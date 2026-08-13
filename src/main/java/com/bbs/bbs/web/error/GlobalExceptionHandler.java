@@ -51,7 +51,8 @@ public class GlobalExceptionHandler {
         ErrorCode code = exception.getErrorCode();
         HttpStatus status = switch (code) {
             case DUPLICATE_LOGIN_NAME, DUPLICATE_COLLECTION,
-                    CATEGORY_DISABLED, INVALID_STATE_TRANSITION -> HttpStatus.CONFLICT;
+                    CATEGORY_DISABLED, INVALID_STATE_TRANSITION,
+                    OPTIMISTIC_LOCK_CONFLICT -> HttpStatus.CONFLICT;
             case AUTHENTICATION_REQUIRED, INVALID_CREDENTIALS, ACCOUNT_DISABLED ->
                     HttpStatus.UNAUTHORIZED;
             case ACCESS_DENIED, FORBIDDEN_OWNERSHIP -> HttpStatus.FORBIDDEN;

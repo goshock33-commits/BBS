@@ -4,13 +4,21 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.bbs.bbs.Mapper.BBSPostMapper;
+import com.bbs.bbs.Mapper.BBSCategoryMapper;
 import com.bbs.bbs.Mapper.BBSUserMapper;
 import com.bbs.bbs.bean.*;
 import com.bbs.bbs.common.Constants;
+import com.bbs.bbs.web.dto.post.CreatePostRequest;
+import com.bbs.bbs.web.dto.post.PostPageRequest;
+import com.bbs.bbs.web.dto.post.PostResponse;
+import com.bbs.bbs.web.dto.post.UpdatePostRequest;
+import com.bbs.bbs.web.error.BusinessException;
+import com.bbs.bbs.web.error.ErrorCode;
+import com.bbs.bbs.web.model.ContentStatus;
 import com.bbs.util.PageQueryUtil;
 import com.bbs.util.PageResult;
-import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -23,14 +31,135 @@ import java.util.stream.Collectors;
  */
 @Service
 public class BBSPostServiceImpl implements BBSPostService {
-    @Resource
-    private BBSPostMapper bbsPostMapper;
-    @Resource
-    private BBSUserMapper bbsUserMapper;
-    @Resource
-    private RedisUtil redisUtil;
-    @Resource
-    private com.bbs.bbs.bean.otherUtil otherUtil;
+    private final BBSPostMapper bbsPostMapper;
+    private final BBSUserMapper bbsUserMapper;
+    private final BBSCategoryMapper categoryMapper;
+    private final RedisUtil redisUtil;
+    private final com.bbs.bbs.bean.otherUtil otherUtil;
+
+    public BBSPostServiceImpl(BBSPostMapper bbsPostMapper,
+                              BBSUserMapper bbsUserMapper,
+                              BBSCategoryMapper categoryMapper,
+                              RedisUtil redisUtil,
+                              com.bbs.bbs.bean.otherUtil otherUtil) {
+        this.bbsPostMapper = bbsPostMapper;
+        this.bbsUserMapper = bbsUserMapper;
+        this.categoryMapper = categoryMapper;
+        this.redisUtil = redisUtil;
+        this.otherUtil = otherUtil;
+    }
+
+    @Override
+    @Transactional
+    public PostResponse createPost(Long currentUserId, CreatePostRequest request) {
+        BBSPostCategory category = requireEnabledCategory(request.categoryId());
+        BBSPost post = new BBSPost();
+        post.setPublishUserId(currentUserId);
+        post.setPostTitle(request.title().trim());
+        post.setPostContent(request.content().trim());
+        post.setPostCategoryId(category.getCategoryId());
+        post.setPostCategoryName(category.getCategoryName());
+        post.setPostStatus((byte) 1);
+        post.setContentStatus(ContentStatus.NORMAL);
+        post.setPostViews(0L);
+        post.setPostComments(0L);
+        post.setPostCollects(0L);
+        post.setVersion(0);
+        post.setIsDeleted((byte) 0);
+        Date now = new Date();
+        post.setLastUpdateTime(now);
+        post.setCreateTime(now);
+        if (bbsPostMapper.insert(post) <= 0) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "发帖失败");
+        }
+        return toResponse(post);
+    }
+
+    @Override
+    public PostResponse getVisiblePost(Long postId, Long currentUserId, boolean admin) {
+        BBSPost post = requirePost(postId);
+        boolean owner = currentUserId != null
+                && currentUserId.equals(post.getPublishUserId());
+        if (post.getContentStatus() == ContentStatus.DELETED && !admin) {
+            throw notFound();
+        }
+        if (post.getContentStatus() == ContentStatus.HIDDEN && !owner && !admin) {
+            throw notFound();
+        }
+        return toResponse(post);
+    }
+
+    @Override
+    public com.bbs.bbs.web.response.PageResult<PostResponse> listPublicPosts(
+            PostPageRequest request) {
+        LambdaQueryWrapper<BBSPost> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(BBSPost::getContentStatus, ContentStatus.NORMAL)
+                .eq(BBSPost::getIsDeleted, 0)
+                .eq(request.categoryId() != null,
+                        BBSPost::getPostCategoryId, request.categoryId());
+        if (request.keyword() != null && !request.keyword().isBlank()) {
+            String keyword = request.keyword().trim();
+            wrapper.and(query -> query.like(BBSPost::getPostTitle, keyword)
+                    .or().like(BBSPost::getPostContent, keyword));
+        }
+        wrapper.orderByDesc(BBSPost::getCreateTime);
+        IPage<BBSPost> page = bbsPostMapper.selectPage(
+                new Page<>(request.page(), request.size()), wrapper);
+        Map<Long, BBSUser> authors = page.getRecords().stream()
+                .map(BBSPost::getPublishUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.collectingAndThen(Collectors.toList(), ids ->
+                        bbsUserMapper.selectByIds(ids).stream()
+                                .collect(Collectors.toMap(BBSUser::getUserId,
+                                        user -> user, (left, right) -> left))));
+        List<PostResponse> responses = page.getRecords().stream()
+                .map(post -> toResponse(post, authors.get(post.getPublishUserId())))
+                .toList();
+        return com.bbs.bbs.web.response.PageResult.of(
+                responses, page.getTotal(), request.page(), request.size());
+    }
+
+    @Override
+    @Transactional
+    public PostResponse updatePost(Long currentUserId, Long postId,
+                                   UpdatePostRequest request) {
+        BBSPost post = requirePost(postId);
+        requireOwner(post, currentUserId);
+        if (post.getContentStatus() != ContentStatus.NORMAL) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "当前帖子状态不允许编辑");
+        }
+        BBSPostCategory category = requireEnabledCategory(request.categoryId());
+        int updated = bbsPostMapper.updateOwnedPost(
+                postId, currentUserId, request.title().trim(), request.content().trim(),
+                category.getCategoryId(), category.getCategoryName(), request.version());
+        if (updated == 0) {
+            throw new BusinessException(ErrorCode.OPTIMISTIC_LOCK_CONFLICT,
+                    "帖子已被其他操作修改，请刷新后重试");
+        }
+        post.setPostTitle(request.title().trim());
+        post.setPostContent(request.content().trim());
+        post.setPostCategoryId(category.getCategoryId());
+        post.setPostCategoryName(category.getCategoryName());
+        post.setVersion(Math.toIntExact(request.version() + 1));
+        return toResponse(post, bbsUserMapper.selectById(post.getPublishUserId()));
+    }
+
+    @Override
+    @Transactional
+    public void deletePost(Long currentUserId, Long postId) {
+        BBSPost post = requirePost(postId);
+        requireOwner(post, currentUserId);
+        if (post.getContentStatus() == ContentStatus.DELETED) {
+            return;
+        }
+        if (bbsPostMapper.deleteOwnedPost(postId, currentUserId,
+                post.getVersion().longValue()) == 0) {
+            throw new BusinessException(ErrorCode.OPTIMISTIC_LOCK_CONFLICT,
+                    "帖子已被其他操作修改，请刷新后重试");
+        }
+    }
 
     @Override
     public int addPost(BBSPost post, BBSUser user) {
@@ -276,6 +405,63 @@ public class BBSPostServiceImpl implements BBSPostService {
         }
         return new PageResult(records, Math.toIntExact(page.getTotal()),
                 pageSize, pageNumber);
+    }
+
+    private BBSPostCategory requireEnabledCategory(Integer categoryId) {
+        BBSPostCategory category = categoryMapper.selectById(categoryId);
+        if (category == null) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "分类不存在");
+        }
+        if (!Boolean.TRUE.equals(category.getEnabled())) {
+            throw new BusinessException(ErrorCode.CATEGORY_DISABLED, "分类已停用");
+        }
+        return category;
+    }
+
+    private BBSPost requirePost(Long postId) {
+        BBSPost post = bbsPostMapper.selectPostIncludingDeleted(postId);
+        if (post == null) {
+            throw notFound();
+        }
+        return post;
+    }
+
+    private void requireOwner(BBSPost post, Long currentUserId) {
+        if (currentUserId == null
+                || !currentUserId.equals(post.getPublishUserId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN_OWNERSHIP,
+                    "只能操作自己的帖子");
+        }
+    }
+
+    private BusinessException notFound() {
+        return new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "帖子不存在");
+    }
+
+    private PostResponse toResponse(BBSPost post) {
+        return toResponse(post, null);
+    }
+
+    private PostResponse toResponse(BBSPost post, BBSUser author) {
+        java.time.Instant created = post.getCreateTime() == null
+                ? null : post.getCreateTime().toInstant();
+        java.time.Instant updated = post.getLastUpdateTime() == null
+                ? null : post.getLastUpdateTime().toInstant();
+        return new PostResponse(
+                post.getPostId(),
+                post.getPublishUserId(),
+                author == null ? post.getNickName() : author.getNickName(),
+                post.getPostCategoryId(),
+                post.getPostCategoryName(),
+                post.getPostTitle(),
+                post.getPostContent(),
+                post.getContentStatus(),
+                post.getPostViews(),
+                post.getPostComments(),
+                post.getPostCollects(),
+                post.getVersion() == null ? null : post.getVersion().longValue(),
+                created,
+                updated);
     }
 }
 

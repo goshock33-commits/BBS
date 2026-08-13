@@ -3,6 +3,10 @@ package com.bbs.bbs.service;
 import com.bbs.bbs.bean.BBSPost;
 import com.bbs.bbs.bean.BBSUser;
 import com.bbs.bbs.bean.HotPost;
+import com.bbs.bbs.web.dto.post.CreatePostRequest;
+import com.bbs.bbs.web.dto.post.PostPageRequest;
+import com.bbs.bbs.web.dto.post.PostResponse;
+import com.bbs.bbs.web.dto.post.UpdatePostRequest;
 import com.bbs.util.PageQueryUtil;
 import com.bbs.util.PageResult;
 
@@ -15,6 +19,16 @@ import java.util.List;
  * @Version 1.0
  */
 public interface BBSPostService {
+    PostResponse createPost(Long currentUserId, CreatePostRequest request);
+
+    PostResponse getVisiblePost(Long postId, Long currentUserId, boolean admin);
+
+    com.bbs.bbs.web.response.PageResult<PostResponse> listPublicPosts(PostPageRequest request);
+
+    PostResponse updatePost(Long currentUserId, Long postId, UpdatePostRequest request);
+
+    void deletePost(Long currentUserId, Long postId);
+
     // 发帖
     int  addPost(BBSPost post, BBSUser user);
     // 根据分类名查询帖子

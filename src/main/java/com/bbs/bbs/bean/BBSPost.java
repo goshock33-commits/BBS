@@ -2,6 +2,7 @@ package com.bbs.bbs.bean;
 
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
+import com.bbs.bbs.web.model.ContentStatus;
 
 import java.util.Date;
 
@@ -24,11 +25,16 @@ public class BBSPost {
 
     private Byte postStatus;
 
+    private ContentStatus contentStatus;
+
     private Long postViews;
 
     private Long postComments;
 
     private Long postCollects;
+
+    @Version
+    private Integer version;
 
     private Date lastUpdateTime;
 
