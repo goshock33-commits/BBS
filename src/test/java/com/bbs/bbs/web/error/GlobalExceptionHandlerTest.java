@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.test.web.servlet.MockMvc;
@@ -35,6 +36,21 @@ class GlobalExceptionHandlerTest {
         ApiResult<Void> register(@Valid @RequestBody RegisterRequest request) {
             return ApiResult.success(null);
         }
+
+        @GetMapping("/test/ownership")
+        ApiResult<Void> ownership() {
+            throw new BusinessException(ErrorCode.FORBIDDEN_OWNERSHIP, "无权操作该资源");
+        }
+
+        @GetMapping("/test/state")
+        ApiResult<Void> state() {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "状态流转不合法");
+        }
+
+        @GetMapping("/test/category")
+        ApiResult<Void> category() {
+            throw new BusinessException(ErrorCode.CATEGORY_DISABLED, "分类已停用");
+        }
     }
 
     @Test
@@ -48,5 +64,29 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.traceId").isNotEmpty());
+    }
+
+    @Test
+    void ownershipFailureReturnsForbidden() throws Exception {
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/test/ownership"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN_OWNERSHIP"));
+    }
+
+    @Test
+    void invalidStateTransitionReturnsConflict() throws Exception {
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/test/state"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INVALID_STATE_TRANSITION"));
+    }
+
+    @Test
+    void disabledCategoryReturnsConflict() throws Exception {
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/test/category"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CATEGORY_DISABLED"));
     }
 }

@@ -50,12 +50,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResult<Void>> handleBusiness(BusinessException exception) {
         ErrorCode code = exception.getErrorCode();
         HttpStatus status = switch (code) {
-            case DUPLICATE_LOGIN_NAME -> HttpStatus.CONFLICT;
+            case DUPLICATE_LOGIN_NAME, DUPLICATE_COLLECTION,
+                    CATEGORY_DISABLED, INVALID_STATE_TRANSITION -> HttpStatus.CONFLICT;
             case AUTHENTICATION_REQUIRED, INVALID_CREDENTIALS, ACCOUNT_DISABLED ->
                     HttpStatus.UNAUTHORIZED;
-            case ACCESS_DENIED -> HttpStatus.FORBIDDEN;
+            case ACCESS_DENIED, FORBIDDEN_OWNERSHIP -> HttpStatus.FORBIDDEN;
             case RESOURCE_NOT_FOUND -> HttpStatus.NOT_FOUND;
-            case VALIDATION_ERROR -> HttpStatus.BAD_REQUEST;
+            case VALIDATION_ERROR, MODERATION_REASON_REQUIRED -> HttpStatus.BAD_REQUEST;
             default -> HttpStatus.BAD_REQUEST;
         };
         return response(status, code, exception.getMessage());
