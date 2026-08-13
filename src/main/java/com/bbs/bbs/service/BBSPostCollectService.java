@@ -3,6 +3,7 @@ package com.bbs.bbs.service;
 import com.bbs.bbs.bean.BBSPost;
 
 import java.util.List;
+import com.bbs.bbs.web.dto.collect.CollectResponse;
 
 /**
  * @Author qq
@@ -11,6 +12,8 @@ import java.util.List;
  * @Version 1.0
  */
 public interface BBSPostCollectService {
+    CollectResponse collect(Long currentUserId, Long postId);
+    CollectResponse cancelCollect(Long currentUserId, Long postId);
     /**
      * 收藏帖子
      */

@@ -15,6 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
+import com.bbs.bbs.web.dto.collect.CollectResponse;
+import com.bbs.bbs.web.error.BusinessException;
+import com.bbs.bbs.web.error.ErrorCode;
+import com.bbs.bbs.web.model.ContentStatus;
+import java.time.Instant;
 
 /**
  * @Author qq
@@ -32,6 +37,46 @@ public class BBSPostCollectServiceImpl implements BBSPostCollectService{
     private BBSUserMapper userMapper;
     @Resource
     private RedisUtil redisUtil;
+
+    @Override
+    @Transactional
+    public CollectResponse collect(Long currentUserId, Long postId) {
+        BBSUser user = requireActiveUser(currentUserId);
+        BBSPost post = requireNormalPost(postId);
+        BBSPostCollect existing = collectMapper.findByUserAndPost(currentUserId, postId);
+        if (existing != null) return new CollectResponse(postId, true, existing.getCreateTime() == null ? null : existing.getCreateTime().toInstant());
+        BBSPostCollect collect = new BBSPostCollect();
+        collect.setUserId(currentUserId); collect.setPostId(postId); collect.setCreateTime(new Date());
+        if (collectMapper.insertIgnore(collect) > 0) postMapper.incrementCollectCount(postId);
+        return new CollectResponse(postId, true, collect.getCreateTime().toInstant());
+    }
+
+    @Override
+    @Transactional
+    public CollectResponse cancelCollect(Long currentUserId, Long postId) {
+        requireActiveUser(currentUserId);
+        BBSPost post = requireNormalPost(postId);
+        int removed = collectMapper.deleteByUserAndPost(currentUserId, postId);
+        if (removed > 0) postMapper.decrementCollectCount(postId);
+        return new CollectResponse(postId, false, null);
+    }
+
+    private BBSUser requireActiveUser(Long userId) {
+        BBSUser user = userMapper.selectById(userId);
+        if (user == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "用户不存在");
+        if (user.getUserStatus() != null && user.getUserStatus() != 0)
+            throw new BusinessException(ErrorCode.ACCOUNT_DISABLED, "账号已停用");
+        return user;
+    }
+
+    private BBSPost requireNormalPost(Long postId) {
+        BBSPost post = postMapper.selectPostIncludingDeleted(postId);
+        if (post == null) post = postMapper.selectById(postId);
+        if (post == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "帖子不存在");
+        if (post.getContentStatus() != ContentStatus.NORMAL)
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "帖子当前不可收藏");
+        return post;
+    }
     @Override
     @Transactional
     public Boolean addCollectRecord(Long userId, Long postId) {

@@ -21,6 +21,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import com.bbs.bbs.web.dto.comment.CommentPageRequest;
+import com.bbs.bbs.web.dto.comment.CommentResponse;
+import com.bbs.bbs.web.dto.comment.CreateCommentRequest;
+import com.bbs.bbs.web.error.BusinessException;
+import com.bbs.bbs.web.error.ErrorCode;
+import com.bbs.bbs.web.model.ContentStatus;
+import java.time.Instant;
+import java.util.Date;
 
 @Service
 public class BBSCommentServiceImpl implements BBSCommentService {
@@ -33,6 +41,94 @@ public class BBSCommentServiceImpl implements BBSCommentService {
     private BBSPostMapper bbsPostMapper;
     @Resource
     private RedisUtil redisUtil;
+
+    @Override
+    @Transactional
+    public CommentResponse createComment(Long currentUserId, Long postId,
+                                         CreateCommentRequest request) {
+        BBSUser user = requireActiveUser(currentUserId);
+        BBSPost post = requireNormalPost(postId);
+        if (request.parentCommentId() != null) {
+            BBSPostComment parent = bbsCommentMapper.selectIncludingDeleted(request.parentCommentId());
+            if (parent == null || !postId.equals(parent.getPostId())
+                    || parent.getContentStatus() == ContentStatus.DELETED) {
+                throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "父评论不存在");
+            }
+        }
+        BBSPostComment entity = new BBSPostComment();
+        entity.setPostId(postId);
+        entity.setCommentUserId(currentUserId);
+        entity.setCommentBody(request.body().trim());
+        entity.setParentCommentUserId(request.parentCommentId());
+        entity.setContentStatus(ContentStatus.NORMAL);
+        entity.setVersion(0);
+        entity.setIsDeleted((byte) 0);
+        entity.setCommentCreateTime(new Date());
+        if (bbsCommentMapper.insert(entity) <= 0 || bbsPostMapper.incrementCommentCount(postId) <= 0) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "评论失败");
+        }
+        return toResponse(entity, user);
+    }
+
+    @Override
+    @Transactional
+    public void deleteComment(Long currentUserId, Long commentId) {
+        requireActiveUser(currentUserId);
+        BBSPostComment comment = bbsCommentMapper.selectIncludingDeleted(commentId);
+        if (comment == null || comment.getContentStatus() == ContentStatus.DELETED) return;
+        BBSPost post = bbsPostMapper.selectPostIncludingDeleted(comment.getPostId());
+        if (post == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "帖子不存在");
+        if (!currentUserId.equals(comment.getCommentUserId())
+                && !currentUserId.equals(post.getPublishUserId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN_OWNERSHIP, "无权删除该评论");
+        }
+        int deleted = bbsCommentMapper.deleteById(commentId);
+        if (deleted > 0) bbsPostMapper.decrementCommentCount(comment.getPostId());
+    }
+
+    @Override
+    public com.bbs.bbs.web.response.PageResult<CommentResponse> listComments(Long postId,
+                                                                              CommentPageRequest request) {
+        BBSPost post = requireNormalPost(postId);
+        IPage<BBSPostComment> page = bbsCommentMapper.selectPage(
+                new Page<>(request.page(), request.size()),
+                new LambdaQueryWrapper<BBSPostComment>()
+                        .eq(BBSPostComment::getPostId, postId)
+                        .eq(BBSPostComment::getContentStatus, ContentStatus.NORMAL)
+                        .orderByAsc(BBSPostComment::getCommentCreateTime));
+        if (page == null) return com.bbs.bbs.web.response.PageResult.of(List.of(), 0, request.page(), request.size());
+        List<BBSPostComment> records = page.getRecords();
+        List<Long> ids = records.stream().map(BBSPostComment::getCommentUserId).distinct().toList();
+        Map<Long, BBSUser> users = ids.isEmpty() ? Map.of() : bbsUserMapper.selectByIds(ids).stream()
+                .collect(Collectors.toMap(BBSUser::getUserId, value -> value, (a, b) -> a));
+        List<CommentResponse> result = records.stream()
+                .map(value -> toResponse(value, users.get(value.getCommentUserId()))).toList();
+        return com.bbs.bbs.web.response.PageResult.of(result, page.getTotal(), request.page(), request.size());
+    }
+
+    private BBSUser requireActiveUser(Long userId) {
+        BBSUser user = bbsUserMapper.selectById(userId);
+        if (user == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "用户不存在");
+        if (user.getUserStatus() != null && user.getUserStatus() != 0)
+            throw new BusinessException(ErrorCode.ACCOUNT_DISABLED, "账号已停用");
+        return user;
+    }
+
+    private BBSPost requireNormalPost(Long postId) {
+        BBSPost post = bbsPostMapper.selectPostIncludingDeleted(postId);
+        if (post == null) post = bbsPostMapper.selectById(postId);
+        if (post == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "帖子不存在");
+        if (post.getContentStatus() != ContentStatus.NORMAL)
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "帖子当前不可互动");
+        return post;
+    }
+
+    private CommentResponse toResponse(BBSPostComment comment, BBSUser user) {
+        return new CommentResponse(comment.getCommentId(), comment.getPostId(), comment.getCommentUserId(),
+                user == null ? null : user.getNickName(), comment.getParentCommentUserId(), comment.getCommentBody(),
+                comment.getContentStatus(), comment.getVersion() == null ? 0L : comment.getVersion().longValue(),
+                comment.getCommentCreateTime() == null ? null : comment.getCommentCreateTime().toInstant());
+    }
 
     @Override
     @Transactional

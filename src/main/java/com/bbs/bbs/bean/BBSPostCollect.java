@@ -18,4 +18,5 @@ public class BBSPostCollect {
     private Long userId;
 
     private Date createTime;
+
 }

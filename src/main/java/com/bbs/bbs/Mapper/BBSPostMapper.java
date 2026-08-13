@@ -3,6 +3,7 @@ package com.bbs.bbs.Mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.bbs.bbs.bean.BBSPost;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Update;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
@@ -14,6 +15,14 @@ import org.apache.ibatis.annotations.Update;
  */
 
 public interface BBSPostMapper extends BaseMapper<BBSPost> {
+    @Update("UPDATE tb_bbs_post SET post_comments = post_comments + 1 WHERE post_id = #{postId}")
+    int incrementCommentCount(@Param("postId") Long postId);
+    @Update("UPDATE tb_bbs_post SET post_comments = CASE WHEN post_comments > 0 THEN post_comments - 1 ELSE 0 END WHERE post_id = #{postId}")
+    int decrementCommentCount(@Param("postId") Long postId);
+    @Update("UPDATE tb_bbs_post SET post_collects = post_collects + 1 WHERE post_id = #{postId}")
+    int incrementCollectCount(@Param("postId") Long postId);
+    @Update("UPDATE tb_bbs_post SET post_collects = CASE WHEN post_collects > 0 THEN post_collects - 1 ELSE 0 END WHERE post_id = #{postId}")
+    int decrementCollectCount(@Param("postId") Long postId);
 
     @Select("SELECT * FROM tb_bbs_post WHERE post_id = #{postId} LIMIT 1")
     BBSPost selectPostIncludingDeleted(@Param("postId") Long postId);

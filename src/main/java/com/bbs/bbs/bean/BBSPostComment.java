@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 
 import java.util.Date;
+import com.bbs.bbs.web.model.ContentStatus;
 
 @Data
 @TableName("tb_bbs_post_comment")
@@ -24,6 +25,11 @@ public class BBSPostComment {
 
     @TableLogic
     private Byte isDeleted;
+
+    private ContentStatus contentStatus;
+
+    @Version
+    private Integer version;
 
     @TableField(exist = false)
     private String nickName;
