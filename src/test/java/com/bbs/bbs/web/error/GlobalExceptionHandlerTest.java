@@ -18,6 +18,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -88,5 +90,12 @@ class GlobalExceptionHandlerTest {
                         .get("/test/category"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("CATEGORY_DISABLED"));
+    }
+
+    @Test
+    void missingFontReturnsEmptyNotFoundInsteadOfApiResult() throws Exception {
+        mvc.perform(get("/missing-font.woff"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string(""));
     }
 }

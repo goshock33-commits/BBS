@@ -34,6 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -173,6 +174,18 @@ class BBSPostServiceImplTest {
         LambdaQueryWrapper<BBSPost> wrapper = wrapperCaptor.getValue();
         assertTrue(wrapper.getSqlSegment().contains("content_status"));
         assertTrue(wrapper.getParamNameValuePairs().containsValue(ContentStatus.NORMAL));
+    }
+
+    @Test
+    void phaseTwoHotTopicsDoNotReadOrWriteRedis() {
+        BBSPost recent = post(12L, 7L, ContentStatus.NORMAL);
+        recent.setPostTitle("recent");
+        recent.setPostComments(0L);
+        when(postMapper.selectList(any())).thenReturn(List.of(recent));
+
+        assertEquals(1, service.getHotTopicBBSPostList().size());
+
+        verifyNoInteractions(redisUtil);
     }
 
     private BBSPost post(long id, long authorId, ContentStatus status) {

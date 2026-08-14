@@ -2,6 +2,7 @@ package com.bbs.bbs.web.error;
 
 import com.bbs.bbs.web.response.ApiResult;
 import jakarta.validation.ConstraintViolationException;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -42,7 +43,10 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
-    public ResponseEntity<ApiResult<Void>> handleNotFound() {
+    public ResponseEntity<?> handleNotFound(HttpServletRequest request) {
+        if (!request.getRequestURI().startsWith("/api/")) {
+            return ResponseEntity.notFound().build();
+        }
         return response(HttpStatus.NOT_FOUND, ErrorCode.RESOURCE_NOT_FOUND, "资源不存在");
     }
 

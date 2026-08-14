@@ -332,10 +332,6 @@ public class BBSPostServiceImpl implements BBSPostService {
             hotPost.setPostTitle(Post.getPostTitle());
             hotPost.setPostComments(Post.getPostComments());
             hotPost.setPostId(Post.getPostId());
-            //存入redis
-            if (redisUtil.get("post:" + Post.getPostId()) == null) {
-                redisUtil.set("post:" + Post.getPostId(), Post);
-            }
             hotPostList.add(hotPost);
         }
         return hotPostList;
