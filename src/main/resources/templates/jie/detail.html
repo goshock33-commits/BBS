@@ -121,7 +121,7 @@
                                 </div>
                                 <div class="jieda-reply">
                                     <a href="#replyTextarea"
-                                       th:onclick="'preReply('+${bbsCommentListEntity.commentUserId}+')'">
+                                       th:onclick="'preReply('+${bbsCommentListEntity.commentId}+')'">
                                     <span type="reply">
                                     <i class="iconfont icon-svgmoban53"></i>
                                     回复
@@ -187,25 +187,12 @@
                 <div class="layui-form layui-form-pane" id="replyTextarea">
                     <form method="post" id="replyForm" onsubmit="return false;" action="##">
                         <input type="hidden" id="postId" name="postId" th:value="${bbsPost.postId}">
-                        <input type="hidden" id="parentCommentUserId" name="parentCommentUserId" value="0">
+                        <input type="hidden" id="parentCommentId" name="parentCommentId" value="">
                         <div class="layui-form-item layui-form-text">
                             <div class="layui-input-block">
                                 <textarea id="commentBody" name="commentBody" required lay-verify="required"
                                           placeholder="请输入内容" class="layui-textarea fly-editor"
                                           style="height: 150px;"></textarea>
-                            </div>
-                        </div>
-                        <div class="layui-form-item">
-                            <label for="verifyCode" class="layui-form-label">验证码</label>
-                            <div class="layui-input-inline">
-                                <input type="text" id="verifyCode" name="verifyCode" required lay-verify="required"
-                                       placeholder="请输入验证码" autocomplete="off" class="layui-input">
-                            </div>
-                            <div class="layui-form-mid">
-                             <span><img data-tooltip="看不清楚？换一张"
-                                        th:src="@{/common/captcha}"
-                                        onclick="this.src='/common/captcha?d='+new Date()*1"
-                                        alt="单击图片刷新！"></span>
                             </div>
                         </div>
                         <div class="layui-form-item">
@@ -255,31 +242,35 @@
         }
 
         //回复按钮的触发事件
-        window.preReply = function (parentCommentUserId) {
-            $('#parentCommentUserId').val(parentCommentUserId);
+        function csrfHeaders() {
+            var token = document.querySelector("meta[name='_csrf']")?.content;
+            var header = document.querySelector("meta[name='_csrf_header']")?.content;
+            return token && header ? {[header]: token} : {};
+        }
+
+        window.preReply = function (parentCommentId) {
+            $('#parentCommentId').val(parentCommentId);
         }
 
         //评论
         window.reply = function (postId) {
             var $ = layui.$;
-            var verifyCode = $("#verifyCode").val();
-            if (!validLength(verifyCode, 5)) {
-                layer.alert('请输入正确的验证码!', {title: '提醒', skin: 'layui-layer-molv', icon: 2});
-                return false;
-            }
             var commentBody = $("#commentBody").val();
             if (isNull(commentBody)) {
                 layer.alert('请输入评论!', {title: '提醒', skin: 'layui-layer-molv', icon: 2});
                 return false;
             }
-            var params = $("#replyForm").serialize();
-            var url = '/replyPost';
+            var parentCommentId = $("#parentCommentId").val();
+            var params = {body: commentBody, parentCommentId: parentCommentId ? Number(parentCommentId) : null};
+            var url = '/api/v1/posts/' + postId + '/comments';
             $.ajax({
-                type: 'POST',//方法类型
+                type: 'POST',
                 url: url,
-                data: params,
+                headers: csrfHeaders(),
+                contentType: 'application/json',
+                data: JSON.stringify(params),
                 success: function (result) {
-                    if (result.resultCode == 200) {
+                    if (result.code === 'SUCCESS') {
                         layer.confirm('评论成功!将刷新本页面...', {
                             icon: 3,
                             skin: 'layui-layer-molv',
@@ -303,10 +294,11 @@
         window.delReply = function (commentId) {
             var $ = layui.$;
             $.ajax({
-                type: 'POST',//方法类型
-                url: '/delReply/' + commentId,
+                type: 'DELETE',
+                url: '/api/v1/comments/' + commentId,
+                headers: csrfHeaders(),
                 success: function (result) {
-                    if (result.resultCode == 200) {
+                    if (result.code === 'SUCCESS') {
                         layer.confirm('删除成功!将刷新本页面...', {
                             icon: 3,
                             skin: 'layui-layer-molv',
@@ -330,10 +322,11 @@
         window.collect = function (postId) {
             var $ = layui.$;
             $.ajax({
-                type: 'POST',//方法类型
-                url: '/addCollect/' + postId,
+                type: 'PUT',
+                url: '/api/v1/posts/' + postId + '/collect',
+                headers: csrfHeaders(),
                 success: function (result) {
-                    if (result.resultCode == 200) {
+                    if (result.code === 'SUCCESS') {
                         layer.confirm('收藏成功!将刷新本页面...', {
                             icon: 3,
                             skin: 'layui-layer-molv',
@@ -357,10 +350,11 @@
         window.delCollect = function (postId) {
             var $ = layui.$;
             $.ajax({
-                type: 'POST',//方法类型
-                url: '/delCollect/' + postId,
+                type: 'DELETE',
+                url: '/api/v1/posts/' + postId + '/collect',
+                headers: csrfHeaders(),
                 success: function (result) {
-                    if (result.resultCode == 200) {
+                    if (result.code === 'SUCCESS') {
                         layer.confirm('取消收藏成功!将刷新本页面...', {
                             icon: 3,
                             skin: 'layui-layer-molv',

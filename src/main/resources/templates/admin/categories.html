@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{header::head-fragment('分类管理')}"></head>
+<body>
+<div th:replace="~{header::header-fragment}"></div>
+<link rel="stylesheet" th:href="@{/css/admin.css}">
+<div class="admin-shell">
+    <aside class="admin-sidebar">
+        <div class="admin-brand">社区治理<small>内容与账号管理</small></div>
+        <nav class="admin-nav">
+            <a th:href="@{/admin}">总览</a>
+            <a th:href="@{/admin/posts}">帖子治理</a>
+            <a th:href="@{/admin/comments}">评论治理</a>
+            <a th:href="@{/admin/users}">用户状态</a>
+            <a class="active" th:href="@{/admin/categories}">分类管理</a>
+        </nav>
+    </aside>
+    <main class="admin-main">
+        <header class="admin-page-head">
+            <div><h1>分类管理</h1><p>新增、编辑和调整分类启用状态</p></div>
+            <button class="layui-btn layui-btn-primary" id="refreshCategories" type="button">
+                <i class="layui-icon layui-icon-refresh"></i>刷新
+            </button>
+        </header>
+        <section class="admin-panel">
+            <form id="categoryForm" class="admin-form-grid">
+                <div><label for="categoryId">分类 ID</label><input class="layui-input" id="categoryId" type="number" min="1" readonly></div>
+                <div><label for="categoryRank">排序值</label><input class="layui-input" id="categoryRank" type="number" value="0"></div>
+                <div class="wide"><label for="categoryName">分类名称</label><input class="layui-input" id="categoryName" maxlength="50"></div>
+                <div class="wide admin-actions">
+                    <button class="layui-btn" type="button" data-action="create">新增分类</button>
+                    <button class="layui-btn layui-btn-normal" type="button" data-action="update">保存编辑</button>
+                    <button class="layui-btn" type="button" data-action="enable">启用</button>
+                    <button class="layui-btn layui-btn-danger" type="button" data-action="disable">停用</button>
+                </div>
+            </form>
+        </section>
+        <section class="admin-panel admin-section-gap">
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead><tr><th>ID</th><th>名称</th><th>排序</th><th>状态</th><th>操作</th></tr></thead>
+                    <tbody id="categoryRows"></tbody>
+                </table>
+            </div>
+            <div class="admin-empty" id="categoryEmpty" hidden>暂无分类</div>
+        </section>
+    </main>
+</div>
+<script th:src="@{/js/admin.js}"></script>
+<script>
+layui.use('layer', function () {
+    var layer = layui.layer;
+
+    function fillForm(category) {
+        document.getElementById('categoryId').value = category.id;
+        document.getElementById('categoryName').value = category.name;
+        document.getElementById('categoryRank').value = category.rank;
+    }
+
+    function categoryRow(category) {
+        var e = BbsAdmin.escapeHtml;
+        var status = category.enabled ? '已启用' : '已停用';
+        var statusClass = category.enabled ? 'NORMAL' : 'HIDDEN';
+        return '<tr><td>' + e(category.id) + '</td><td>' + e(category.name) + '</td><td>' + e(category.rank) + '</td><td><span class="admin-status ' + statusClass + '">' + status + '</span></td><td><button class="layui-btn layui-btn-primary layui-btn-xs" type="button" data-select-id="' + e(category.id) + '">选择</button></td></tr>';
+    }
+
+    async function loadCategories() {
+        try {
+            var categories = await BbsAdmin.api('/api/v1/admin/categories', {method: 'GET'});
+            document.getElementById('categoryRows').innerHTML = categories.map(categoryRow).join('');
+            document.getElementById('categoryEmpty').hidden = categories.length !== 0;
+            document.getElementById('categoryRows').dataset.categories = JSON.stringify(categories);
+        } catch (error) {
+            layer.msg(error.message);
+        }
+    }
+
+    document.getElementById('categoryRows').addEventListener('click', function (event) {
+        var button = event.target.closest('button[data-select-id]');
+        if (!button) return;
+        var categories = JSON.parse(event.currentTarget.dataset.categories || '[]');
+        var selected = categories.find(function (category) { return String(category.id) === button.dataset.selectId; });
+        if (selected) fillForm(selected);
+    });
+
+    document.getElementById('categoryForm').addEventListener('click', async function (event) {
+        var button = event.target.closest('button[data-action]');
+        if (!button) return;
+        var action = button.dataset.action;
+        var id = document.getElementById('categoryId').value;
+        var name = document.getElementById('categoryName').value.trim();
+        var rank = Number(document.getElementById('categoryRank').value || 0);
+        var url = '/api/v1/admin/categories';
+        var request;
+        if (action === 'create') {
+            if (!name) { layer.msg('请填写分类名称'); return; }
+            request = BbsAdmin.json('POST', {name: name, rank: rank});
+        } else if (action === 'update') {
+            if (!id || !name) { layer.msg('请先从列表选择分类并填写名称'); return; }
+            url += '/' + id;
+            request = BbsAdmin.json('PUT', {name: name, rank: rank});
+        } else {
+            if (!id) { layer.msg('请先从列表选择分类'); return; }
+            url += '/' + id + '/' + action;
+            request = BbsAdmin.json('POST');
+        }
+        try {
+            var data = await BbsAdmin.api(url, request);
+            if (data && data.id) fillForm(data);
+            layer.msg('操作成功');
+            loadCategories();
+        } catch (error) {
+            layer.msg(error.message);
+        }
+    });
+
+    document.getElementById('refreshCategories').addEventListener('click', loadCategories);
+    loadCategories();
+});
+</script>
+</body>
+</html>

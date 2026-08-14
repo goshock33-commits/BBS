@@ -28,12 +28,12 @@
                                 <div class="layui-col-md6">
                                     <label class="layui-form-label">所在专栏</label>
                                     <div class="layui-input-block">
-                                        <select name="postCategoryName" lay-filter="column"
-                                                id="postCategoryName">
+                                        <select name="postCategoryId" lay-filter="column"
+                                                id="postCategoryId">
                                             <option value="0"></option>
                                             <th:block th:unless="${null == bbsPostCategories}">
                                                 <th:block th:each="c : ${bbsPostCategories}">
-                                                    <option th:value="${c.categoryName}" th:text="${c.categoryName}">提问
+                                                    <option th:value="${c.categoryId}" th:text="${c.categoryName}">提问
                                                     </option>
                                                 </th:block>
                                             </th:block>
@@ -46,19 +46,6 @@
                                     <div id="wangEditor" name="postContent" required
                                          placeholder="详细描述"
                                          style="height: 260px;"></div>
-                                </div>
-                            </div>
-                            <div class="layui-form-item" style="margin-top: 56px;">
-                                <label for="verifyCode" class="layui-form-label">验证码</label>
-                                <div class="layui-input-inline">
-                                    <input type="text" id="verifyCode" name="verifyCode" required
-                                           placeholder="验证码" autocomplete="off" class="layui-input">
-                                </div>
-                                <div class="layui-form-mid">
-                                    <span style="color: #c00;"><img data-tooltip="看不清楚？换一张"
-                                                                    th:src="@{/common/captcha}"
-                                                                    onclick="this.src='/common/captcha?d='+new Date()*1"
-                                                                    alt="单击图片刷新！"></span>
                                 </div>
                             </div>
                             <div class="layui-form-item">
@@ -121,25 +108,33 @@
         }
         editorD.create();
 
+        function csrfHeaders() {
+            var token = document.querySelector("meta[name='_csrf']")?.content;
+            var header = document.querySelector("meta[name='_csrf_header']")?.content;
+            return token && header ? {[header]: token} : {};
+        }
+
         $('#addBtn').on('click', function () {
             var data = {
-                postTitle: $('input[name="postTitle"]').val(),
-                postCategoryName: $('select[name="postCategoryName"]').val(),
-                postContent: editorD.txt.html(),
-                verifyCode: $('input[name="verifyCode"]').val(),
+                title: $('input[name="postTitle"]').val(),
+                categoryId: Number($('select[name="postCategoryId"]').val()),
+                content: editorD.txt.html(),
+                imageUrls: []
             };
 
             $.ajax({
-                url: '/addPost',
+                url: '/api/v1/posts',
                 type: 'POST',
-                data: data,
+                headers: csrfHeaders(),
+                contentType: 'application/json',
+                data: JSON.stringify(data),
                 success: function (res) {
-                    if (res.resultCode === 200) {
+                    if (res.code === 'SUCCESS') {
                         layer.msg('发布成功！', {icon: 1}, function () {
                             window.location.href = '/index';
                         });
                     } else {
-                        layer.msg(res.message, {icon: 2});
+                        layer.msg(res.message || '发布失败', {icon: 2});
                     }
                 },
                 error: function () {

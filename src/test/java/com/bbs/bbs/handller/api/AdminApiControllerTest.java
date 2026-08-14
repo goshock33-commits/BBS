@@ -186,6 +186,9 @@ class AdminApiControllerTest {
     void categoryRoutesUseDtoAndAdministratorIdentity() throws Exception {
         when(userService.findActiveByLoginName("admin@example.com"))
                 .thenReturn(administrator);
+        when(moderationService.listCategories()).thenReturn(List.of(
+                new CategoryResponse(3, "后端", 8, true),
+                new CategoryResponse(4, "归档", 1, false)));
         when(moderationService.createCategory(9L,
                 new CategoryRequest("后端", 8)))
                 .thenReturn(new CategoryResponse(3, "后端", 8, true));
@@ -193,6 +196,11 @@ class AdminApiControllerTest {
                 new CategoryRequest("Java", 9)))
                 .thenReturn(new CategoryResponse(3, "Java", 9, true));
 
+        mvc.perform(get("/api/v1/admin/categories")
+                        .with(user("admin@example.com").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[1].enabled").value(false));
         mvc.perform(post("/api/v1/admin/categories")
                         .with(user("admin@example.com").roles("ADMIN"))
                         .with(csrf())

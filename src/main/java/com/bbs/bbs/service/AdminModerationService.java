@@ -9,6 +9,8 @@ import com.bbs.bbs.web.dto.comment.CommentResponse;
 import com.bbs.bbs.web.dto.post.PostResponse;
 import com.bbs.bbs.web.response.PageResult;
 
+import java.util.List;
+
 public interface AdminModerationService {
     PageResult<PostResponse> listPosts(AdminPostFilterRequest request);
 
@@ -31,6 +33,8 @@ public interface AdminModerationService {
     void disableUser(Long operatorId, Long userId, String reason);
 
     void restoreUser(Long operatorId, Long userId, String reason);
+
+    List<CategoryResponse> listCategories();
 
     CategoryResponse createCategory(Long operatorId, CategoryRequest request);
 

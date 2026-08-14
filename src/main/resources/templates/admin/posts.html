@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{header::head-fragment('帖子治理')}"></head>
+<body>
+<div th:replace="~{header::header-fragment}"></div>
+<link rel="stylesheet" th:href="@{/css/admin.css}">
+<div class="admin-shell">
+    <aside class="admin-sidebar"><div class="admin-brand">社区治理<small>内容与账号管理</small></div>
+        <nav class="admin-nav"><a th:href="@{/admin}">总览</a><a class="active" th:href="@{/admin/posts}">帖子治理</a><a th:href="@{/admin/comments}">评论治理</a><a th:href="@{/admin/users}">用户状态</a><a th:href="@{/admin/categories}">分类管理</a></nav>
+    </aside>
+    <main class="admin-main">
+        <header class="admin-page-head"><div><h1>帖子治理</h1><p>筛选内容并执行合法状态流转</p></div></header>
+        <section class="admin-panel">
+            <form class="admin-toolbar" id="postFilters">
+                <select class="layui-select" name="status"><option value="">全部状态</option><option>NORMAL</option><option>HIDDEN</option><option>DELETED</option></select>
+                <input class="layui-input" name="categoryId" type="number" min="1" placeholder="分类 ID">
+                <input class="layui-input" name="authorId" type="number" min="1" placeholder="作者 ID">
+                <input class="layui-input" name="from" type="datetime-local" aria-label="开始时间">
+                <input class="layui-input" name="to" type="datetime-local" aria-label="结束时间">
+                <button class="layui-btn" type="submit"><i class="layui-icon layui-icon-search"></i>筛选</button>
+            </form>
+            <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>ID</th><th>标题</th><th>作者</th><th>分类</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead><tbody id="postRows"></tbody></table></div>
+            <div class="admin-empty" id="postEmpty" hidden>暂无符合条件的帖子</div>
+            <div class="admin-pager"><button class="layui-btn layui-btn-primary layui-btn-sm" id="postPrev" type="button">上一页</button><span id="postPage">第 1 页</span><button class="layui-btn layui-btn-primary layui-btn-sm" id="postNext" type="button">下一页</button></div>
+        </section>
+    </main>
+</div>
+<script th:src="@{/js/admin.js}"></script>
+<script>
+layui.use('layer', function () {
+    var layer = layui.layer, page = 1, totalPages = 0;
+    function query() {
+        var form = new FormData(document.getElementById('postFilters'));
+        var params = new URLSearchParams({page: page, size: 10});
+        ['status', 'categoryId', 'authorId'].forEach(function (key) { if (form.get(key)) params.set(key, form.get(key)); });
+        if (form.get('from')) params.set('from', BbsAdmin.iso(form.get('from')));
+        if (form.get('to')) params.set('to', BbsAdmin.iso(form.get('to')));
+        return params;
+    }
+    async function load() {
+        try {
+            var data = await BbsAdmin.api('/api/v1/admin/posts?' + query(), {method: 'GET'});
+            totalPages = data.totalPages;
+            document.getElementById('postRows').innerHTML = data.list.map(row).join('');
+            document.getElementById('postEmpty').hidden = data.list.length !== 0;
+            document.getElementById('postPage').textContent = '第 ' + data.page + ' / ' + Math.max(data.totalPages, 1) + ' 页';
+            document.getElementById('postPrev').disabled = page <= 1;
+            document.getElementById('postNext').disabled = page >= totalPages;
+        } catch (error) { layer.msg(error.message); }
+    }
+    function row(post) {
+        var e = BbsAdmin.escapeHtml;
+        var actions = post.status === 'NORMAL' ? button(post.id, 'hide', '隐藏', 'layui-btn-warm') : post.status === 'HIDDEN' ? button(post.id, 'restore', '恢复', '') + button(post.id, 'delete', '删除', 'layui-btn-danger') : '-';
+        return '<tr><td>' + e(post.id) + '</td><td class="admin-title-cell"><strong>' + e(post.title) + '</strong><details class="admin-content-preview"><summary>查看正文</summary><div>' + e(post.content) + '</div></details></td><td>' + e(post.authorName || post.authorId) + '</td><td>' + e(post.categoryName || post.categoryId) + '</td><td><span class="admin-status ' + e(post.status) + '">' + e(post.status) + '</span></td><td>' + e(BbsAdmin.formatTime(post.createTime)) + '</td><td><div class="admin-actions">' + actions + '</div></td></tr>';
+    }
+    function button(id, action, label, css) { return '<button type="button" class="layui-btn layui-btn-xs ' + css + '" data-id="' + id + '" data-action="' + action + '">' + label + '</button>'; }
+    document.getElementById('postRows').addEventListener('click', function (event) {
+        var button = event.target.closest('button[data-action]'); if (!button) return;
+        layer.prompt({title: '填写治理原因', formType: 2}, async function (reason, promptIndex) {
+            try { await BbsAdmin.api('/api/v1/admin/posts/' + button.dataset.id + '/' + button.dataset.action, BbsAdmin.json('POST', {reason: reason})); layer.close(promptIndex); layer.msg('操作成功'); load(); } catch (error) { layer.msg(error.message); }
+        });
+    });
+    document.getElementById('postFilters').addEventListener('submit', function (event) { event.preventDefault(); page = 1; load(); });
+    document.getElementById('postPrev').addEventListener('click', function () { if (page > 1) { page--; load(); } });
+    document.getElementById('postNext').addEventListener('click', function () { if (page < totalPages) { page++; load(); } });
+    load();
+});
+</script>
+</body>
+</html>

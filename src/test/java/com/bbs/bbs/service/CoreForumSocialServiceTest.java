@@ -1,5 +1,9 @@
 package com.bbs.bbs.service;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.bbs.bbs.Mapper.BBSCommentMapper;
 import com.bbs.bbs.Mapper.BBSCollectMapper;
 import com.bbs.bbs.Mapper.BBSPostMapper;
@@ -16,9 +20,12 @@ import com.bbs.bbs.web.error.BusinessException;
 import com.bbs.bbs.web.error.ErrorCode;
 import com.bbs.bbs.web.model.ContentStatus;
 import com.bbs.bbs.web.response.PageResult;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -27,10 +34,17 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CoreForumSocialServiceTest {
+    @BeforeAll
+    static void initializeTableInfo() {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""),
+                BBSPostComment.class);
+    }
     @Mock BBSCommentMapper commentMapper;
     @Mock BBSCollectMapper collectMapper;
     @Mock BBSPostMapper postMapper;
@@ -114,6 +128,57 @@ class CoreForumSocialServiceTest {
         when(commentMapper.selectPage(any(), any())).thenReturn(null);
         PageResult<CommentResponse> result = commentService.listComments(10L, new CommentPageRequest(1, 10));
         assertNotNull(result);
+    }
+
+    @Test
+    void legacyCommentPageQueriesOnlyNormalComments() {
+        Page<BBSPostComment> empty = new Page<>(1, 10);
+        when(commentMapper.selectPage(any(), any())).thenReturn(empty);
+
+        commentService.getCommentsByPostId(10L, 1);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<BBSPostComment>> wrapperCaptor =
+                ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(commentMapper).selectPage(any(), wrapperCaptor.capture());
+        assertTrue(wrapperCaptor.getValue().getSqlSegment().contains("content_status"));
+    }
+
+    @Test
+    void legacyCollectionListOmitsHiddenPosts() {
+        com.bbs.bbs.bean.BBSPostCollect collect = new com.bbs.bbs.bean.BBSPostCollect();
+        collect.setPostId(10L);
+        BBSPost hidden = normalPost(10L, 7L);
+        hidden.setContentStatus(ContentStatus.HIDDEN);
+        when(collectMapper.selectList(any())).thenReturn(List.of(collect));
+        when(postMapper.selectById(10L)).thenReturn(hidden);
+
+        assertTrue(collectService.getCollectRecordsByUserId(7L).isEmpty());
+    }
+
+    @Test
+    void legacyCollectionListUsesDatabaseStatusInsteadOfStaleNormalCache() {
+        com.bbs.bbs.bean.BBSPostCollect collect = new com.bbs.bbs.bean.BBSPostCollect();
+        collect.setPostId(10L);
+        BBSPost cachedNormal = normalPost(10L, 7L);
+        BBSPost hidden = normalPost(10L, 7L);
+        hidden.setContentStatus(ContentStatus.HIDDEN);
+        when(collectMapper.selectList(any())).thenReturn(List.of(collect));
+        lenient().when(redisUtil.get("post:10")).thenReturn(cachedNormal);
+        when(postMapper.selectById(10L)).thenReturn(hidden);
+
+        assertTrue(collectService.getCollectRecordsByUserId(7L).isEmpty());
+        verify(postMapper).selectById(10L);
+    }
+
+    @Test
+    void recentCommentsAreEmptyWhenAllReferencedPostsAreDeleted() {
+        BBSPostComment existing = comment(99L, 10L, 7L);
+        existing.setContentStatus(ContentStatus.NORMAL);
+        when(commentMapper.selectList(any())).thenReturn(List.of(existing));
+        when(postMapper.selectByIds(anyCollection())).thenReturn(List.of());
+
+        assertTrue(commentService.getRecentCommentListByUserId(7L).isEmpty());
     }
 
     private static BBSPost normalPost(Long id, Long owner) {

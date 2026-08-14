@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{header::head-fragment('用户状态')}"></head>
+<body>
+<div th:replace="~{header::header-fragment}"></div><link rel="stylesheet" th:href="@{/css/admin.css}">
+<div class="admin-shell"><aside class="admin-sidebar"><div class="admin-brand">社区治理<small>内容与账号管理</small></div><nav class="admin-nav"><a th:href="@{/admin}">总览</a><a th:href="@{/admin/posts}">帖子治理</a><a th:href="@{/admin/comments}">评论治理</a><a class="active" th:href="@{/admin/users}">用户状态</a><a th:href="@{/admin/categories}">分类管理</a></nav></aside>
+<main class="admin-main"><header class="admin-page-head"><div><h1>用户状态</h1><p>按用户 ID 禁用或恢复账号</p></div></header><section class="admin-panel"><form id="userStatusForm" class="admin-form-grid">
+    <div><label for="targetUserId">用户 ID</label><input class="layui-input" id="targetUserId" type="number" min="1" required></div>
+    <div class="wide"><label for="userReason">操作原因</label><textarea class="layui-textarea" id="userReason" maxlength="500" required></textarea></div>
+    <div class="wide"><button class="layui-btn layui-btn-danger" type="button" data-action="disable">禁用账号</button><button class="layui-btn" type="button" data-action="restore">恢复账号</button></div>
+</form></section></main></div>
+<script th:src="@{/js/admin.js}"></script><script>
+layui.use('layer',function(){var layer=layui.layer;document.getElementById('userStatusForm').addEventListener('click',async function(event){var button=event.target.closest('button[data-action]');if(!button)return;var id=document.getElementById('targetUserId').value,reason=document.getElementById('userReason').value.trim();if(!id||!reason){layer.msg('请填写用户 ID 和操作原因');return;}try{await BbsAdmin.api('/api/v1/admin/users/'+id+'/'+button.dataset.action,BbsAdmin.json('POST',{reason:reason}));layer.msg('操作成功');}catch(error){layer.msg(error.message);}});});
+</script></body></html>

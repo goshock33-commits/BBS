@@ -217,6 +217,20 @@ class AdminModerationServiceImplTest {
     }
 
     @Test
+    void categoryListIncludesEnabledAndDisabledCategories() {
+        BBSPostCategory enabled = category(3, true);
+        BBSPostCategory disabled = category(4, false);
+        when(categoryMapper.selectList(any())).thenReturn(
+                java.util.List.of(enabled, disabled));
+
+        var categories = service.listCategories();
+
+        assertEquals(2, categories.size());
+        assertEquals(true, categories.get(0).enabled());
+        assertEquals(false, categories.get(1).enabled());
+    }
+
+    @Test
     void normalContentMustBeHiddenBeforeDeletion() {
         when(postMapper.selectPostIncludingDeleted(41L))
                 .thenReturn(post(41L, ContentStatus.NORMAL));

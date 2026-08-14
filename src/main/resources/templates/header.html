@@ -77,6 +77,9 @@
                         <span class="layui-nav-more"></span>
                     </a>
                     <dl class="layui-nav-child">
+                        <dd th:if="${session.myBBSUser.role == 'ADMIN'}">
+                            <a th:href="@{/admin}"><i class="layui-icon">&#xe653;</i>管理后台</a>
+                        </dd>
                         <dd><a th:href="@{/userSet}"><i class="layui-icon">&#xe620;</i>基本设置</a></dd>
                         <dd><a th:href="@{/myCenter}"><i class="layui-icon" style="margin-left: 2px; font-size: 22px;">&#xe68e;</i>我的主页</a>
                         </dd>

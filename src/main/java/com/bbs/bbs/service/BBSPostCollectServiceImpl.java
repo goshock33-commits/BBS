@@ -153,8 +153,11 @@ public class BBSPostCollectServiceImpl implements BBSPostCollectService{
         LambdaQueryWrapper<BBSPostCollect> Wrapper = new LambdaQueryWrapper<>();
         Wrapper.eq(BBSPostCollect::getUserId, userId);
         List<BBSPostCollect> collectList = collectMapper.selectList(Wrapper);
-        List<BBSPost> postList = collectList.stream().map(collect ->
-                redisUtil.get("post:"+collect.getPostId())!=null? (BBSPost) redisUtil.get("post:"+collect.getPostId()): postMapper.selectById(collect.getPostId())).toList();
+        List<BBSPost> postList = collectList.stream()
+                .map(collect -> postMapper.selectById(collect.getPostId()))
+                .filter(post -> post != null
+                        && post.getContentStatus() == ContentStatus.NORMAL)
+                .toList();
         return postList;
     }
 }

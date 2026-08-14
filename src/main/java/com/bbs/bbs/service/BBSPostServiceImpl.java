@@ -180,7 +180,10 @@ public class BBSPostServiceImpl implements BBSPostService {
     public List<BBSPost> selectPostByCategoryName(String categoryName, Integer pageNum) {
         // 分页查询
         LambdaQueryWrapper<BBSPost> Wrapper = new LambdaQueryWrapper<>();
-        Wrapper.eq(categoryName != null, BBSPost::getPostCategoryName, categoryName).eq(BBSPost::getPostStatus, 1).eq(BBSPost::getIsDeleted, 0);
+        Wrapper.eq(categoryName != null, BBSPost::getPostCategoryName, categoryName)
+                .eq(BBSPost::getContentStatus, ContentStatus.NORMAL)
+                .eq(BBSPost::getPostStatus, 1)
+                .eq(BBSPost::getIsDeleted, 0);
         Wrapper.orderByDesc(BBSPost::getCreateTime);
         IPage<BBSPost> page = new Page<>(pageNum, 10);
         IPage<BBSPost> iPage = bbsPostMapper.selectPage(page, Wrapper);
@@ -215,33 +218,42 @@ public class BBSPostServiceImpl implements BBSPostService {
     @Override
     public long getTotalPostCount(String categoryName) {
         LambdaQueryWrapper<BBSPost> Wrapper = new LambdaQueryWrapper<>();
-        Wrapper.eq(categoryName != null, BBSPost::getPostCategoryName, categoryName).eq(BBSPost::getPostStatus, 1).eq(BBSPost::getIsDeleted, 0);
+        Wrapper.eq(categoryName != null, BBSPost::getPostCategoryName, categoryName)
+                .eq(BBSPost::getContentStatus, ContentStatus.NORMAL)
+                .eq(BBSPost::getPostStatus, 1)
+                .eq(BBSPost::getIsDeleted, 0);
         return bbsPostMapper.selectCount(Wrapper);
     }
 
     @Override
     public BBSPost getBBSPostById(Long postId) {
-        BBSPost bbsPost = (BBSPost) redisUtil.get("post:" + postId);
-        if (bbsPost == null) return bbsPostMapper.selectById(postId);
-        return bbsPost;
+        BBSPost post = bbsPostMapper.selectPostIncludingDeleted(postId);
+        return post != null && post.getContentStatus() == ContentStatus.NORMAL
+                ? post : null;
     }
 
     @Override
     public BBSPost getBBSPostForDetail(Long postId, Long userId) {
-        //从redis中获取帖子
-        BBSPost post = (BBSPost) redisUtil.get("post:" + postId);
+        BBSPost post = bbsPostMapper.selectPostIncludingDeleted(postId);
         if (post == null) {
-            //从数据库中查询帖子
-            post = bbsPostMapper.selectById(postId);
-            if (post == null) {
-                return null;
-            }
+            return null;
+        }
+        boolean owner = userId != null && userId.equals(post.getPublishUserId());
+        if (post.getContentStatus() != ContentStatus.NORMAL
+                && !(owner && post.getContentStatus() == ContentStatus.HIDDEN)) {
+            return null;
         }
         //从redis中获取用户
         BBSUser user = (BBSUser) redisUtil.get("user:" + post.getPublishUserId());
         if (user == null) {
             user = bbsUserMapper.selectById(post.getPublishUserId());
             redisUtil.set("user:" + user.getUserId(), user);
+        }
+        if (post.getContentStatus() == ContentStatus.HIDDEN) {
+            post.setNickName(user.getNickName());
+            post.setHeadImgUrl(user.getHeadImgUrl());
+            post.setUser(user);
+            return post;
         }
         //从redis中获取用户
         //合并帖子和用户信息
@@ -301,7 +313,10 @@ public class BBSPostServiceImpl implements BBSPostService {
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.DAY_OF_MONTH, -1);
         //查询24小时内的帖子
-        Wrapper.eq(BBSPost::getPostStatus, 1).eq(BBSPost::getIsDeleted, 0).ge(BBSPost::getCreateTime, calendar.getTime());
+        Wrapper.eq(BBSPost::getContentStatus, ContentStatus.NORMAL)
+                .eq(BBSPost::getPostStatus, 1)
+                .eq(BBSPost::getIsDeleted, 0)
+                .ge(BBSPost::getCreateTime, calendar.getTime());
         Wrapper.orderByDesc(BBSPost::getCreateTime);
         List<BBSPost> bbsPosts = bbsPostMapper.selectList(Wrapper);
         if (bbsPosts.isEmpty()) {
@@ -332,6 +347,7 @@ public class BBSPostServiceImpl implements BBSPostService {
         calendar.add(Calendar.DAY_OF_MONTH, -7);
         LambdaQueryWrapper<BBSPost> Wrapper = new LambdaQueryWrapper<>();
         Wrapper.eq(BBSPost::getPublishUserId, userId);
+        Wrapper.eq(BBSPost::getContentStatus, ContentStatus.NORMAL);
         Wrapper.eq(BBSPost::getPostStatus, 1);
         Wrapper.ge(BBSPost::getCreateTime, calendar.getTime());
         Wrapper.orderByDesc(BBSPost::getCreateTime);
@@ -342,6 +358,8 @@ public class BBSPostServiceImpl implements BBSPostService {
     public List<BBSPost> getMyBBSPostList(Long userId) {
         LambdaQueryWrapper<BBSPost> Wrapper = new LambdaQueryWrapper<>();
         Wrapper.eq(BBSPost::getPublishUserId, userId);
+        Wrapper.in(BBSPost::getContentStatus,
+                ContentStatus.NORMAL, ContentStatus.HIDDEN);
         Wrapper.eq(BBSPost::getPostStatus, 1);
         Wrapper.eq(BBSPost::getIsDeleted, 0);
         Wrapper.orderByDesc(BBSPost::getCreateTime);
@@ -353,7 +371,8 @@ public class BBSPostServiceImpl implements BBSPostService {
         int pageNumber = pageUtil.getPage();
         int pageSize = Math.min(pageUtil.getLimit(), 50);
         LambdaQueryWrapper<BBSPost> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(BBSPost::getPostStatus, 1)
+        wrapper.eq(BBSPost::getContentStatus, ContentStatus.NORMAL)
+                .eq(BBSPost::getPostStatus, 1)
                 .eq(BBSPost::getIsDeleted, 0);
 
         Object categoryId = pageUtil.get("categoryId");

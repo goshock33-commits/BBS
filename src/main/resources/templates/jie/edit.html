@@ -18,6 +18,7 @@
                         <form method="post" id="postForm" onsubmit="return false;" action="##">
                             <div class="layui-row layui-col-space15 layui-form-item">
                                 <input type="hidden" id="postId" th:value="${bbsPost.postId}">
+                                <input type="hidden" id="postVersion" th:value="${bbsPost.version}">
                                 <div class="layui-col-md6">
                                     <label for="postTitle" class="layui-form-label">标题</label>
                                     <div class="layui-input-block">
@@ -29,12 +30,12 @@
                                     <label class="layui-form-label">所在专栏</label>
                                     <div class="layui-input-block">
                                         <select name="class" lay-filter="column"
-                                                id="postCategoryName">
+                                                id="postCategoryId">
                                             <option value="0"></option>
                                             <th:block th:unless="${null == bbsPostCategories}">
                                                 <th:block th:each="c : ${bbsPostCategories}">
-                                                    <option th:value="${c.categoryName}" th:text="${c.categoryName}"
-                                                            th:selected="${null !=c.categoryName and bbsPost.postCategoryName==c.categoryName} ?true:false">提问
+                                                    <option th:value="${c.categoryId}" th:text="${c.categoryName}"
+                                                            th:selected="${c.categoryId == bbsPost.postCategoryId}">提问
                                                     </option>
                                                 </th:block>
                                             </th:block>
@@ -47,19 +48,6 @@
                                     <div id="wangEditor" name="postContent" required
                                          placeholder="详细描述"
                                          style="height: 260px;" th:utext="${bbsPost.postContent}"></div>
-                                </div>
-                            </div>
-                            <div class="layui-form-item" style="margin-top: 56px;">
-                                <label for="verifyCode" class="layui-form-label">验证码</label>
-                                <div class="layui-input-inline">
-                                    <input type="text" id="verifyCode" name="verifyCode" required
-                                           placeholder="验证码" autocomplete="off" class="layui-input">
-                                </div>
-                                <div class="layui-form-mid">
-                                    <span style="color: #c00;"><img data-tooltip="看不清楚？换一张"
-                                                                    th:src="@{/common/captcha}"
-                                                                    onclick="this.src='/common/captcha?d='+new Date()*1"
-                                                                    alt="单击图片刷新！"></span>
                                 </div>
                             </div>
                             <div class="layui-form-item">
@@ -132,6 +120,12 @@
         }
         editorD.create();
 
+        function csrfHeaders() {
+            var token = document.querySelector("meta[name='_csrf']")?.content;
+            var header = document.querySelector("meta[name='_csrf_header']")?.content;
+            return token && header ? {[header]: token} : {};
+        }
+
         window.editBBSPost = function () {
             var postId = $("#postId").val();
             var postTitle = $("#postTitle").val();
@@ -139,13 +133,8 @@
                 layer.alert('请输入标题!', {title: '提醒', skin: 'layui-layer-molv', icon: 2});
                 return;
             }
-            var verifyCode = $("#verifyCode").val();
-            if (isNull(verifyCode) || verifyCode.trim().length !== 4) {
-                layer.alert('请输入正确的验证码!', {title: '提醒', skin: 'layui-layer-molv', icon: 2});
-                return;
-            }
-            var postCategoryName = $('#postCategoryName option:selected').val();
-            if (isNull(postCategoryName)) {
+            var postCategoryId = Number($('#postCategoryId option:selected').val());
+            if (!postCategoryId) {
                 layer.alert('请选择分类!', {title: '提醒', skin: 'layui-layer-molv', icon: 2});
                 return;
             }
@@ -156,18 +145,22 @@
                 layer.alert('内容超出长度!', {title: '提醒', skin: 'layui-layer-molv', icon: 2});
                 return;
             }
-            var url = '/editPost';
+            var url = '/api/v1/posts/' + postId;
             var data = {
-                "postId" : postId,
-                "postTitle": postTitle, "verifyCode": verifyCode,
-                "postCategoryName": postCategoryName, "postContent": postContent
+                categoryId: postCategoryId,
+                title: postTitle,
+                content: postContent,
+                imageUrls: [],
+                version: Number($("#postVersion").val())
             };
             $.ajax({
-                type: 'POST',//方法类型
+                type: 'PUT',
                 url: url,
-                data: data,
+                headers: csrfHeaders(),
+                contentType: 'application/json',
+                data: JSON.stringify(data),
                 success: function (result) {
-                    if (result.resultCode == 200) {
+                    if (result.code === 'SUCCESS') {
                         window.location.href = '/detail/'+postId;
                     } else {
                         layer.msg(result.message);

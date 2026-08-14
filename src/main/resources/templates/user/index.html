@@ -46,8 +46,11 @@
             <th:block th:each="bbsPost : ${myBBSPostList}">
             <li>
               <a class="jie-title" th:href="@{${'/detail/'+bbsPost.postId}}" target="_blank" th:text="${bbsPost.postTitle}">My-BBS开源啦</a>
+              <span class="layui-badge layui-bg-orange post-status-hidden"
+                    th:if="${bbsPost.contentStatus != null and bbsPost.contentStatus.name() == 'HIDDEN'}">已隐藏</span>
               <i th:text="${#dates.format(bbsPost.createTime, 'yyyy/MM/dd HH:mm:ss')}">2021/08/01</i>
-              <a class="mine-edit" th:href="@{${'/editPostPage/'+bbsPost.postId}}">编辑</a>
+              <a class="mine-edit" th:if="${bbsPost.contentStatus != null and bbsPost.contentStatus.name() == 'NORMAL'}"
+                 th:href="@{${'/editPostPage/'+bbsPost.postId}}">编辑</a>
               <a class="mine-del" href="##" th:onclick="'delPost('+${bbsPost.postId}+')'">删除</a>
               <em><th:block th:text="${bbsPost.postViews}"></th:block>阅/<th:block th:text="${bbsPost.postComments}"></th:block>答</em>
             </li>
@@ -122,11 +125,15 @@
 
         window.delPost = function (postId) {
             var $ = layui.$;
+            var csrfToken = document.querySelector("meta[name='_csrf']")?.content;
+            var csrfHeader = document.querySelector("meta[name='_csrf_header']")?.content;
+            var headers = csrfToken && csrfHeader ? {[csrfHeader]: csrfToken} : {};
             $.ajax({
-                type: 'POST',//方法类型
-                url: '/delPost/'+postId,
+                type: 'DELETE',
+                url: '/api/v1/posts/'+postId,
+                headers: headers,
                 success: function (result) {
-                    if (result.resultCode == 200) {
+                    if (result.code === 'SUCCESS') {
                         layer.confirm('删除成功!将刷新本页面...', {icon: 3, skin: 'layui-layer-molv',title:'提示'}, function(index){
                             layer.close(index);
                             window.location.reload();

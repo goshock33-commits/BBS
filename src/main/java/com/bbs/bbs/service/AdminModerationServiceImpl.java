@@ -1,5 +1,6 @@
 package com.bbs.bbs.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.bbs.bbs.Mapper.BBSCategoryMapper;
 import com.bbs.bbs.Mapper.BBSCommentMapper;
 import com.bbs.bbs.Mapper.BBSPostMapper;
@@ -138,6 +139,18 @@ public class AdminModerationServiceImpl implements AdminModerationService {
     @Transactional
     public void restoreUser(Long operatorId, Long userId, String reason) {
         changeUserStatus(operatorId, userId, reason, (byte) 1, (byte) 0);
+    }
+
+    @Override
+    @Transactional
+    public List<CategoryResponse> listCategories() {
+        return categoryMapper.selectList(
+                        new LambdaQueryWrapper<BBSPostCategory>()
+                                .orderByDesc(BBSPostCategory::getCategoryRank)
+                                .orderByAsc(BBSPostCategory::getCategoryId))
+                .stream()
+                .map(this::toCategoryResponse)
+                .toList();
     }
 
     @Override

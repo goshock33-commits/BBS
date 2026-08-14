@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{header::head-fragment('管理中心')}"></head>
+<body>
+<div th:replace="~{header::header-fragment}"></div>
+<link rel="stylesheet" th:href="@{/css/admin.css}">
+<div class="admin-shell">
+    <aside class="admin-sidebar">
+        <div class="admin-brand">社区治理<small>内容与账号管理</small></div>
+        <nav class="admin-nav">
+            <a class="active" th:href="@{/admin}"><i class="layui-icon layui-icon-home"></i>总览</a>
+            <a th:href="@{/admin/posts}"><i class="layui-icon layui-icon-read"></i>帖子治理</a>
+            <a th:href="@{/admin/comments}"><i class="layui-icon layui-icon-dialogue"></i>评论治理</a>
+            <a th:href="@{/admin/users}"><i class="layui-icon layui-icon-user"></i>用户状态</a>
+            <a th:href="@{/admin/categories}"><i class="layui-icon layui-icon-tabs"></i>分类管理</a>
+        </nav>
+    </aside>
+    <main class="admin-main">
+        <header class="admin-page-head">
+            <div><h1>管理总览</h1><p>当前社区内容和账号规模</p></div>
+            <button class="layui-btn layui-btn-primary" type="button" id="refreshSummary">
+                <i class="layui-icon layui-icon-refresh"></i>刷新
+            </button>
+        </header>
+        <section class="admin-metrics" aria-live="polite">
+            <div class="admin-metric">用户总量<strong id="userCount">-</strong></div>
+            <div class="admin-metric">帖子总量<strong id="postCount">-</strong></div>
+            <div class="admin-metric">评论总量<strong id="commentCount">-</strong></div>
+        </section>
+    </main>
+</div>
+<script th:src="@{/js/admin.js}"></script>
+<script>
+    layui.use('layer', function () {
+        var layer = layui.layer;
+        async function loadSummary() {
+            try {
+                var data = await BbsAdmin.api('/api/v1/admin/summary', {method: 'GET'});
+                document.getElementById('userCount').textContent = data.users;
+                document.getElementById('postCount').textContent = data.posts;
+                document.getElementById('commentCount').textContent = data.comments;
+            } catch (error) { layer.msg(error.message); }
+        }
+        document.getElementById('refreshSummary').addEventListener('click', loadSummary);
+        loadSummary();
+    });
+</script>
+</body>
+</html>

@@ -199,7 +199,10 @@ public class BBSCommentServiceImpl implements BBSCommentService {
     @Override
     public PageResult getCommentsByPostId(Long postId, int page) {
         LambdaQueryWrapper<BBSPostComment> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(BBSPostComment::getPostId, postId).eq(BBSPostComment::getIsDeleted, 0).orderByAsc(BBSPostComment::getCommentCreateTime);
+        wrapper.eq(BBSPostComment::getPostId, postId)
+                .eq(BBSPostComment::getContentStatus, ContentStatus.NORMAL)
+                .eq(BBSPostComment::getIsDeleted, 0)
+                .orderByAsc(BBSPostComment::getCommentCreateTime);
 
         IPage<BBSPostComment> iPage = bbsCommentMapper.selectPage(new Page<>(page, 10), wrapper);
         List<BBSPostComment> records = iPage.getRecords();
@@ -223,7 +226,13 @@ public class BBSCommentServiceImpl implements BBSCommentService {
     @Override
     public List<RecentCommentListEntity> getRecentCommentListByUserId(Long userId) {
         LambdaQueryWrapper<BBSPostComment> wrapper = new LambdaQueryWrapper<>();
-        LambdaQueryWrapper<BBSPostComment> listWrapper = wrapper.eq(BBSPostComment::getCommentUserId, userId).eq(BBSPostComment::getIsDeleted, 0).orderByAsc(BBSPostComment::getCommentCreateTime).gt(BBSPostComment::getCommentCreateTime, LocalDateTime.now().minusDays(7)).last("limit 6");
+        LambdaQueryWrapper<BBSPostComment> listWrapper = wrapper
+                .eq(BBSPostComment::getCommentUserId, userId)
+                .eq(BBSPostComment::getContentStatus, ContentStatus.NORMAL)
+                .eq(BBSPostComment::getIsDeleted, 0)
+                .orderByAsc(BBSPostComment::getCommentCreateTime)
+                .gt(BBSPostComment::getCommentCreateTime, LocalDateTime.now().minusDays(7))
+                .last("limit 6");
         List<RecentCommentListEntity> recentCommentListEntities = new ArrayList<>();
         List<BBSPostComment> recentCommentList = bbsCommentMapper.selectList(listWrapper);
         if (!CollectionUtils.isEmpty(recentCommentList)) {
@@ -232,13 +241,17 @@ public class BBSCommentServiceImpl implements BBSCommentService {
             // 收集帖子 ID，批量查询帖子标题
             List<Long> postIds = recentCommentList.stream().map(BBSPostComment::getPostId).collect(Collectors.toList());
             List<BBSPost> bbsPosts = bbsPostMapper.selectByIds(postIds);
-            if (!CollectionUtils.isEmpty(bbsPosts)) {
-                Map<Long, BBSPost> bbsPostMap = bbsPosts.stream().collect(Collectors.toMap(BBSPost::getPostId, Function.identity(), (e1, e2) -> e1));
-                for (RecentCommentListEntity entity : recentCommentListEntities) {
-                    if (bbsPostMap.containsKey(entity.getPostId())) {
-                        entity.setPostTitle(bbsPostMap.get(entity.getPostId()).getPostTitle());
-                    }
-                }
+            Map<Long, BBSPost> bbsPostMap = CollectionUtils.isEmpty(bbsPosts)
+                    ? Map.of()
+                    : bbsPosts.stream()
+                        .filter(post -> post.getContentStatus() == ContentStatus.NORMAL)
+                        .collect(Collectors.toMap(BBSPost::getPostId,
+                                Function.identity(), (e1, e2) -> e1));
+            recentCommentListEntities = recentCommentListEntities.stream()
+                    .filter(entity -> bbsPostMap.containsKey(entity.getPostId()))
+                    .toList();
+            for (RecentCommentListEntity entity : recentCommentListEntities) {
+                entity.setPostTitle(bbsPostMap.get(entity.getPostId()).getPostTitle());
             }
         }
         return recentCommentListEntities;

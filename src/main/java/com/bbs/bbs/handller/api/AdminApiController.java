@@ -25,6 +25,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PutMapping;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/admin")
 public class AdminApiController {
@@ -119,6 +121,11 @@ public class AdminApiController {
                                        @Valid @RequestBody UserStatusRequest request) {
         moderationService.restoreUser(operatorId(principal), id, request.reason().trim());
         return ApiResult.success(null);
+    }
+
+    @GetMapping("/categories")
+    public ApiResult<List<CategoryResponse>> listCategories() {
+        return ApiResult.success(moderationService.listCategories());
     }
 
     @PostMapping("/categories")
