@@ -243,11 +243,9 @@ public class BBSPostServiceImpl implements BBSPostService {
                 && !(owner && post.getContentStatus() == ContentStatus.HIDDEN)) {
             return null;
         }
-        //从redis中获取用户
-        BBSUser user = (BBSUser) redisUtil.get("user:" + post.getPublishUserId());
+        BBSUser user = bbsUserMapper.selectById(post.getPublishUserId());
         if (user == null) {
-            user = bbsUserMapper.selectById(post.getPublishUserId());
-            redisUtil.set("user:" + user.getUserId(), user);
+            return null;
         }
         if (post.getContentStatus() == ContentStatus.HIDDEN) {
             post.setNickName(user.getNickName());
@@ -255,19 +253,13 @@ public class BBSPostServiceImpl implements BBSPostService {
             post.setUser(user);
             return post;
         }
-        //从redis中获取用户
-        //合并帖子和用户信息
-        boolean isView = redisUtil.sHasKey("postViewed:" + postId, userId);
-        if (!isView) {
-            redisUtil.sSet("postViewed:" + postId, userId);
-            post.setPostViews(post.getPostViews() + 1);
+        int updated = bbsPostMapper.incrementViewCount(postId);
+        if (updated > 0) {
+            post.setPostViews((post.getPostViews() == null ? 0L : post.getPostViews()) + 1L);
         }
         post.setNickName(user.getNickName());
         post.setHeadImgUrl(user.getHeadImgUrl());
         post.setUser(user);
-        //存入redis
-        redisUtil.set("post:" + post.getPostId(), post);
-        bbsPostMapper.updateById(post);
         return post;
     }
 

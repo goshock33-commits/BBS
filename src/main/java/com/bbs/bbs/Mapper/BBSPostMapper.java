@@ -68,6 +68,8 @@ public interface BBSPostMapper extends BaseMapper<BBSPost> {
     int incrementCollectCount(@Param("postId") Long postId);
     @Update("UPDATE tb_bbs_post SET post_collects = CASE WHEN post_collects > 0 THEN post_collects - 1 ELSE 0 END WHERE post_id = #{postId}")
     int decrementCollectCount(@Param("postId") Long postId);
+    @Update("UPDATE tb_bbs_post SET post_views = post_views + 1 WHERE post_id = #{postId} AND content_status = 'NORMAL' AND is_deleted = 0")
+    int incrementViewCount(@Param("postId") Long postId);
 
     @Select("SELECT * FROM tb_bbs_post WHERE post_id = #{postId} LIMIT 1")
     BBSPost selectPostIncludingDeleted(@Param("postId") Long postId);

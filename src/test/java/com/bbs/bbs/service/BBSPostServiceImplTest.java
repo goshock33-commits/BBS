@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -151,14 +152,33 @@ class BBSPostServiceImplTest {
         BBSPost hidden = post(11L, 7L, ContentStatus.HIDDEN);
         BBSUser author = new BBSUser();
         author.setUserId(7L);
+        when(userMapper.selectById(7L)).thenReturn(author);
         when(postMapper.selectPostIncludingDeleted(11L)).thenReturn(hidden);
-        when(redisUtil.get("user:7")).thenReturn(author);
 
         assertNotNull(service.getBBSPostForDetail(11L, 7L));
 
         assertEquals(0L, hidden.getPostViews());
         verify(postMapper, never()).updateById(any(BBSPost.class));
         verify(redisUtil, never()).set("post:11", hidden);
+    }
+
+    @Test
+    void normalDetailUsesDatabaseAndAtomicViewUpdateWithoutRedis() {
+        BBSPost normal = post(11L, 7L, ContentStatus.NORMAL);
+        BBSUser author = new BBSUser();
+        author.setUserId(7L);
+        author.setNickName("Alice");
+        when(postMapper.selectPostIncludingDeleted(11L)).thenReturn(normal);
+        when(userMapper.selectById(7L)).thenReturn(author);
+        when(postMapper.incrementViewCount(11L)).thenReturn(1);
+
+        BBSPost result = assertDoesNotThrow(
+                () -> service.getBBSPostForDetail(11L, 7L));
+
+        assertEquals("Alice", result.getNickName());
+        assertEquals(1L, result.getPostViews());
+        verify(postMapper).incrementViewCount(11L);
+        verifyNoInteractions(redisUtil);
     }
 
     @Test
