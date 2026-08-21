@@ -32,7 +32,7 @@ public class SecurityConfig {
 
         http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/index", "/detail/**", "/search",
+                        .requestMatchers("/", "/index", "/search",
                                 "/userCenter/**", "/login", "/register",
                                 "/common/captcha", "/api/v1/auth/login",
                                 "/api/v1/auth/register", "/css/**", "/js/**",
@@ -42,7 +42,7 @@ public class SecurityConfig {
                                 "/api/v1/categories").permitAll()
                         .requestMatchers("/admin", "/admin/**", "/api/v1/admin/**")
                         .hasRole("ADMIN")
-                        .requestMatchers("/me/**", "/api/v1/**",
+                        .requestMatchers("/detail/**", "/me/**", "/api/v1/**",
                                 "/addPostPage", "/addPost", "/editPostPage/**",
                                 "/editPost", "/delPost/**", "/replyPost",
                                 "/delReply/**", "/addCollect/**", "/deleteCollect/**",

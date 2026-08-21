@@ -62,6 +62,16 @@ class SecurityConfigTest {
         String myCenter() {
             return "center";
         }
+
+        @GetMapping("/detail/{postId}")
+        String postDetail() {
+            return "detail";
+        }
+
+        @GetMapping("/api/v1/posts/{postId}")
+        String publicPostDetail() {
+            return "post";
+        }
     }
 
     @Test
@@ -112,6 +122,26 @@ class SecurityConfigTest {
         mvc.perform(get("/myCenter"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/login"));
+    }
+
+    @Test
+    void postDetailRedirectsAnonymousUserToLogin() throws Exception {
+        mvc.perform(get("/detail/7"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/login"));
+    }
+
+    @Test
+    void authenticatedUserCanAccessPostDetail() throws Exception {
+        mvc.perform(get("/detail/7")
+                        .with(user("user").roles("USER")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void publicPostApiRemainsAvailableWithoutLogin() throws Exception {
+        mvc.perform(get("/api/v1/posts/7"))
+                .andExpect(status().isOk());
     }
 
     @Test
