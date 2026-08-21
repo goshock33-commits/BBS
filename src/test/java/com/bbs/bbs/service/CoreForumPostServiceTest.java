@@ -2,6 +2,7 @@ package com.bbs.bbs.service;
 
 import com.bbs.bbs.Mapper.BBSCategoryMapper;
 import com.bbs.bbs.Mapper.BBSPostMapper;
+import com.bbs.bbs.Mapper.BBSPostViewMapper;
 import com.bbs.bbs.Mapper.BBSUserMapper;
 import com.bbs.bbs.bean.BBSPost;
 import com.bbs.bbs.bean.BBSPostCategory;
@@ -35,6 +36,7 @@ import static org.mockito.Mockito.when;
 class CoreForumPostServiceTest {
 
     @Mock BBSPostMapper postMapper;
+    @Mock BBSPostViewMapper postViewMapper;
     @Mock BBSUserMapper userMapper;
     @Mock BBSCategoryMapper categoryMapper;
     @Mock RedisUtil redisUtil;
@@ -45,7 +47,8 @@ class CoreForumPostServiceTest {
     @BeforeEach
     void setUp() {
         service = new BBSPostServiceImpl(
-                postMapper, userMapper, categoryMapper, redisUtil, otherUtil);
+                postMapper, postViewMapper, userMapper, categoryMapper,
+                redisUtil, otherUtil);
     }
 
     @Test

@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.bbs.bbs.Mapper.BBSCategoryMapper;
 import com.bbs.bbs.Mapper.BBSPostMapper;
+import com.bbs.bbs.Mapper.BBSPostViewMapper;
 import com.bbs.bbs.Mapper.BBSUserMapper;
 import com.bbs.bbs.bean.BBSPost;
 import com.bbs.bbs.bean.BBSUser;
@@ -22,6 +23,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DuplicateKeyException;
 
 import java.util.List;
 import java.util.Map;
@@ -50,6 +52,9 @@ class BBSPostServiceImplTest {
 
     @Mock
     BBSPostMapper postMapper;
+
+    @Mock
+    BBSPostViewMapper postViewMapper;
 
     @Mock
     BBSUserMapper userMapper;
@@ -158,27 +163,67 @@ class BBSPostServiceImplTest {
         assertNotNull(service.getBBSPostForDetail(11L, 7L));
 
         assertEquals(0L, hidden.getPostViews());
+        verifyNoInteractions(postViewMapper);
         verify(postMapper, never()).updateById(any(BBSPost.class));
         verify(redisUtil, never()).set("post:11", hidden);
     }
 
     @Test
-    void normalDetailUsesDatabaseAndAtomicViewUpdateWithoutRedis() {
+    void firstAuthenticatedDetailRecordsAndIncrementsViewWithoutRedis() {
         BBSPost normal = post(11L, 7L, ContentStatus.NORMAL);
         BBSUser author = new BBSUser();
         author.setUserId(7L);
         author.setNickName("Alice");
         when(postMapper.selectPostIncludingDeleted(11L)).thenReturn(normal);
         when(userMapper.selectById(7L)).thenReturn(author);
+        when(postViewMapper.insertView(11L, 42L)).thenReturn(1);
         when(postMapper.incrementViewCount(11L)).thenReturn(1);
 
         BBSPost result = assertDoesNotThrow(
-                () -> service.getBBSPostForDetail(11L, 7L));
+                () -> service.getBBSPostForDetail(11L, 42L));
 
         assertEquals("Alice", result.getNickName());
         assertEquals(1L, result.getPostViews());
+        verify(postViewMapper).insertView(11L, 42L);
         verify(postMapper).incrementViewCount(11L);
         verifyNoInteractions(redisUtil);
+    }
+
+    @Test
+    void repeatedAuthenticatedDetailDoesNotIncrementViewAgain() {
+        BBSPost normal = post(11L, 7L, ContentStatus.NORMAL);
+        BBSUser author = new BBSUser();
+        author.setUserId(7L);
+        when(postMapper.selectPostIncludingDeleted(11L)).thenReturn(normal);
+        when(userMapper.selectById(7L)).thenReturn(author);
+        when(postViewMapper.insertView(11L, 42L))
+                .thenThrow(new DuplicateKeyException("already viewed"));
+
+        BBSPost result = service.getBBSPostForDetail(11L, 42L);
+
+        assertEquals(0L, result.getPostViews());
+        verify(postMapper, never()).incrementViewCount(11L);
+    }
+
+    @Test
+    void differentAuthenticatedUsersCanEachIncrementViewOnce() {
+        BBSPost firstLoad = post(11L, 7L, ContentStatus.NORMAL);
+        BBSPost secondLoad = post(11L, 7L, ContentStatus.NORMAL);
+        secondLoad.setPostViews(1L);
+        BBSUser author = new BBSUser();
+        author.setUserId(7L);
+        when(postMapper.selectPostIncludingDeleted(11L))
+                .thenReturn(firstLoad, secondLoad);
+        when(userMapper.selectById(7L)).thenReturn(author);
+        when(postViewMapper.insertView(11L, 42L)).thenReturn(1);
+        when(postViewMapper.insertView(11L, 43L)).thenReturn(1);
+        when(postMapper.incrementViewCount(11L)).thenReturn(1);
+
+        service.getBBSPostForDetail(11L, 42L);
+        BBSPost result = service.getBBSPostForDetail(11L, 43L);
+
+        assertEquals(2L, result.getPostViews());
+        verify(postMapper, org.mockito.Mockito.times(2)).incrementViewCount(11L);
     }
 
     @Test

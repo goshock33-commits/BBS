@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.bbs.bbs.Mapper.BBSPostMapper;
 import com.bbs.bbs.Mapper.BBSCategoryMapper;
+import com.bbs.bbs.Mapper.BBSPostViewMapper;
 import com.bbs.bbs.Mapper.BBSUserMapper;
 import com.bbs.bbs.bean.*;
 import com.bbs.bbs.common.Constants;
@@ -18,6 +19,7 @@ import com.bbs.bbs.web.model.ContentStatus;
 import com.bbs.util.PageQueryUtil;
 import com.bbs.util.PageResult;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
@@ -32,17 +34,20 @@ import java.util.stream.Collectors;
 @Service
 public class BBSPostServiceImpl implements BBSPostService {
     private final BBSPostMapper bbsPostMapper;
+    private final BBSPostViewMapper bbsPostViewMapper;
     private final BBSUserMapper bbsUserMapper;
     private final BBSCategoryMapper categoryMapper;
     private final RedisUtil redisUtil;
     private final com.bbs.bbs.bean.otherUtil otherUtil;
 
     public BBSPostServiceImpl(BBSPostMapper bbsPostMapper,
+                              BBSPostViewMapper bbsPostViewMapper,
                               BBSUserMapper bbsUserMapper,
                               BBSCategoryMapper categoryMapper,
                               RedisUtil redisUtil,
                               com.bbs.bbs.bean.otherUtil otherUtil) {
         this.bbsPostMapper = bbsPostMapper;
+        this.bbsPostViewMapper = bbsPostViewMapper;
         this.bbsUserMapper = bbsUserMapper;
         this.categoryMapper = categoryMapper;
         this.redisUtil = redisUtil;
@@ -233,6 +238,7 @@ public class BBSPostServiceImpl implements BBSPostService {
     }
 
     @Override
+    @Transactional
     public BBSPost getBBSPostForDetail(Long postId, Long userId) {
         BBSPost post = bbsPostMapper.selectPostIncludingDeleted(postId);
         if (post == null) {
@@ -253,8 +259,12 @@ public class BBSPostServiceImpl implements BBSPostService {
             post.setUser(user);
             return post;
         }
-        int updated = bbsPostMapper.incrementViewCount(postId);
-        if (updated > 0) {
+        if (registerFirstView(postId, userId)) {
+            int updated = bbsPostMapper.incrementViewCount(postId);
+            if (updated == 0) {
+                throw new BusinessException(
+                        ErrorCode.BUSINESS_ERROR, "浏览量更新失败");
+            }
             post.setPostViews((post.getPostViews() == null ? 0L : post.getPostViews()) + 1L);
         }
         post.setNickName(user.getNickName());
@@ -431,6 +441,14 @@ public class BBSPostServiceImpl implements BBSPostService {
             throw notFound();
         }
         return post;
+    }
+
+    private boolean registerFirstView(Long postId, Long userId) {
+        try {
+            return bbsPostViewMapper.insertView(postId, userId) == 1;
+        } catch (DuplicateKeyException exception) {
+            return false;
+        }
     }
 
     private void requireOwner(BBSPost post, Long currentUserId) {

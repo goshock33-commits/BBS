@@ -134,14 +134,15 @@ feat: persist unique authenticated post views
 
 - [ ] **Step 1: Write failing service tests**
 
-Mock a wished-for `BBSPostViewMapper.insertIfAbsent(postId, userId)` method. Verify these behaviors separately:
+Mock a wished-for `BBSPostViewMapper.insertView(postId, userId)` method. Verify these behaviors separately:
 
 ```java
-when(postViewMapper.insertIfAbsent(7L, 42L)).thenReturn(1);
+when(postViewMapper.insertView(7L, 42L)).thenReturn(1);
 service.getBBSPostForDetail(7L, 42L);
 verify(postMapper).incrementViewCount(7L);
 
-when(postViewMapper.insertIfAbsent(7L, 42L)).thenReturn(0);
+when(postViewMapper.insertView(7L, 42L))
+        .thenThrow(new DuplicateKeyException("already viewed"));
 service.getBBSPostForDetail(7L, 42L);
 verify(postMapper, never()).incrementViewCount(7L);
 ```
@@ -159,16 +160,15 @@ public interface BBSPostViewMapper {
     @Insert("""
             INSERT INTO tb_bbs_post_view (post_id, user_id, create_time)
             VALUES (#{postId}, #{userId}, CURRENT_TIMESTAMP(3))
-            ON DUPLICATE KEY UPDATE view_id = view_id
             """)
-    int insertIfAbsent(@Param("postId") Long postId,
-                       @Param("userId") Long userId);
+    int insertView(@Param("postId") Long postId,
+                   @Param("userId") Long userId);
 }
 ```
 
 - [ ] **Step 4: Implement transactional view registration**
 
-Inject `BBSPostViewMapper`. Mark `getBBSPostForDetail` transactional. For `NORMAL` posts, call `insertIfAbsent`; only when it returns `1` call `incrementViewCount` and update the returned in-memory counter. The no-op duplicate-key update returns `0`, while unrelated database failures still propagate. If counter update returns `0` after a new record, throw a runtime business exception so the transaction rolls back. Leave hidden/deleted visibility rules unchanged and do not call Redis.
+Inject `BBSPostViewMapper`. Mark `getBBSPostForDetail` transactional. For `NORMAL` posts, call `insertView`; only when it returns `1` call `incrementViewCount` and update the returned in-memory counter. Catch `DuplicateKeyException` as an idempotent repeat visit; unrelated database failures still propagate. If counter update returns `0` after a new record, throw a runtime business exception so the transaction rolls back. Leave hidden/deleted visibility rules unchanged and do not call Redis.
 
 - [ ] **Step 5: Verify GREEN and regression**
 
