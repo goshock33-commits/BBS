@@ -84,6 +84,7 @@
         //配置服务端图片上传地址
         editorD.config.uploadImgServer = '/uploadFiles'
         editorD.config.uploadFileName = 'files'
+        editorD.config.uploadImgHeaders = csrfHeaders()
         //限制图片大小 2M
         editorD.config.uploadImgMaxSize = 2 * 1024 * 1024
         //限制一次最多能传几张图片 一次最多上传 5 个图片

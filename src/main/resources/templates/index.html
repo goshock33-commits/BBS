@@ -9,11 +9,11 @@
     <div class="layui-container">
         <!-- 1.渲染页面顶部的帖子分类信息 -->
         <ul class="layui-clear">
-            <li th:class="${null == categoryName} ?'layui-hide-xs layui-this':''"><a href="/">首页</a></li>
+            <li th:class="${null == categoryId} ?'layui-hide-xs layui-this':''"><a href="/">首页</a></li>
             <th:block th:unless="${null == bbsPostCategories}">
                 <th:block th:each="c : ${bbsPostCategories}">
-                    <li th:class="${null != categoryName and categoryName==c.categoryName} ?'layui-hide-xs layui-this':''">
-                        <a th:href="@{${'/index?categoryName='+c.categoryName}}"
+                    <li th:class="${null != categoryId and categoryId==c.categoryId} ?'layui-hide-xs layui-this':''">
+                        <a th:href="@{/index(categoryId=${c.categoryId})}"
                            th:text="${c.categoryName}">分享</a>
                     </li>
                 </th:block>
