@@ -40,7 +40,9 @@ $env:BBS_UPLOAD_DIR='D:\upload'
 mvn.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
-启动成功后访问 `http://localhost:8080/`。Flyway 会在空数据库中创建 Phase 1 表结构。
+启动成功后访问 `http://localhost:8080/`。Flyway 会按顺序执行 V1 和 V2；
+V2 会保留已有帖子、评论和收藏数据，并补充内容状态、乐观锁版本、
+分类启用状态、收藏唯一约束和管理员审核记录表。
 
 CentOS 本地运行可使用独立上传目录：
 
@@ -55,20 +57,42 @@ export BBS_UPLOAD_DIR='/opt/image/upload'
 以下命令排除必须使用 Docker 的 MySQL Testcontainers 测试：
 
 ```powershell
-mvn.cmd "-Dtest=!FlywayMigrationTest,!BbsApplicationTests" test
+mvn.cmd "-Dtest=!FlywayMigrationTest,!FlywayCoreForumMigrationTest,!BbsApplicationTests" test
 mvn.cmd -DskipTests compile
+git diff --check
 ```
+
+## Phase 2 页面与接口
+
+规范论坛接口位于 `/api/v1`，包括帖子、评论、回复、收藏和启用分类。
+写操作需要登录和 CSRF Token，当前操作用户由 Spring Security Session 确定，
+请求体不接受当前操作用户 ID。
+
+管理员登录后可通过以下页面执行基础治理：
+
+- `/admin`：管理首页和总量统计
+- `/admin/posts`：帖子筛选、隐藏、恢复和删除
+- `/admin/comments`：评论筛选、隐藏、恢复和删除
+- `/admin/users`：用户禁用和恢复
+- `/admin/categories`：分类新增、编辑、启用和停用
+
+普通用户访问 `/admin/**` 或 `/api/v1/admin/**` 返回 403。隐藏和删除操作
+必须填写原因，并记录管理员、目标、动作、原因和时间。
 
 ## Linux Docker 集成验证
 
-完整 Phase 1 验证不能由上面的 Windows 回归替代。请在 CentOS VM 中按教程操作：
+完整 Phase 2 验证不能由上面的 Windows 回归替代。CentOS 项目目录为
+`/root/BBS1`，分支为 `phase1/baseline-security`。Phase 1 的环境准备仍可参考：
 
 - `lessons/0001-run-task3-with-linux-vm-docker.html`
 
 关键 Maven 命令：
 
 ```bash
-mvn -Dtest=FlywayMigrationTest,BbsApplicationTests test
+mvn verify
+mvn -Dtest=FlywayMigrationTest,FlywayCoreForumMigrationTest,BbsApplicationTests test
 ```
 
-只有该命令在可用的 Docker 环境中通过后，才能将 Task 3 标记完成并继续关闭 Task 8。
+`FlywayCoreForumMigrationTest` 同时验证空库迁移和带有旧数据的 V1 -> V2 迁移。
+只有完整验证、空库迁移和普通用户/管理员浏览器流程都通过后，才能关闭
+Phase 2 Task 8。
