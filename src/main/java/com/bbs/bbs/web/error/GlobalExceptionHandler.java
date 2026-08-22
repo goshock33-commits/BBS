@@ -5,6 +5,7 @@ import jakarta.validation.ConstraintViolationException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -35,6 +36,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResult<Void>> handleAuthentication() {
         return response(HttpStatus.UNAUTHORIZED,
                 ErrorCode.AUTHENTICATION_REQUIRED, "请先登录");
+    }
+
+    @ExceptionHandler(DisabledException.class)
+    public ResponseEntity<ApiResult<Void>> handleDisabledAccount() {
+        return response(HttpStatus.UNAUTHORIZED,
+                ErrorCode.ACCOUNT_DISABLED, "账号已被禁用");
     }
 
     @ExceptionHandler(AccessDeniedException.class)

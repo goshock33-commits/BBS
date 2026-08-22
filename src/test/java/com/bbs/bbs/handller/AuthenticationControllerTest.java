@@ -18,6 +18,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -158,6 +159,25 @@ class AuthenticationControllerTest {
                                  "verifyCode":"abcd"}
                                 """))
                 .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(securityContextRepository);
+    }
+
+    @Test
+    void disabledAccountReturnsAccountDisabledInsteadOfLoginRequired() throws Exception {
+        doThrow(new DisabledException("账号已被禁用"))
+                .when(authenticationManager).authenticate(any());
+
+        mvc.perform(post("/api/v1/auth/login")
+                        .sessionAttr(Constants.VERIFY_CODE_KEY, "abcd")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"loginName":"user@example.com","password":"password123",
+                                 "verifyCode":"abcd"}
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("ACCOUNT_DISABLED"))
+                .andExpect(jsonPath("$.message").value("账号已被禁用"));
 
         verifyNoInteractions(securityContextRepository);
     }
