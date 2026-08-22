@@ -42,7 +42,7 @@ class FlywayCoreForumMigrationTest extends MySqlContainerSupport {
 
         try (Connection connection = dataSource.getConnection()) {
             assertCoreForumStructures(connection);
-            assertEquals("2", currentFlywayVersion(connection));
+            assertTrue(migrationApplied(connection, "2"));
         }
     }
 
@@ -178,14 +178,18 @@ class FlywayCoreForumMigrationTest extends MySqlContainerSupport {
         }
     }
 
-    private String currentFlywayVersion(Connection connection) throws SQLException {
-        return stringValue(connection, """
-                SELECT version
+    private boolean migrationApplied(Connection connection, String version) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                SELECT COUNT(*)
                 FROM flyway_schema_history
-                WHERE success = 1
-                ORDER BY installed_rank DESC
-                LIMIT 1
-                """);
+                WHERE success = 1 AND version = ?
+                """)) {
+            statement.setString(1, version);
+            try (ResultSet result = statement.executeQuery()) {
+                assertTrue(result.next());
+                return result.getInt(1) == 1;
+            }
+        }
     }
 
     private String stringValue(Connection connection, String sql) throws SQLException {
