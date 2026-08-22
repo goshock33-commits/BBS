@@ -22,6 +22,21 @@ class LegacyPostTemplateContractTest {
     }
 
     @Test
+    void postEditorLoadsWithoutBlockingInitialPageAndKeepsSubmitAreaVisible() throws IOException {
+        String add = readTemplate("jie/add.html");
+        String edit = readTemplate("jie/edit.html");
+
+        for (String template : new String[]{add, edit}) {
+            assertTrue(template.contains("function loadWangEditor"));
+            assertTrue(template.contains("script.async = true"));
+            assertFalse(template.contains("<script type=\"text/javascript\" src=\"//unpkg.com/wangeditor/dist/wangEditor.min.js\"></script>"));
+            assertFalse(template.contains("th:src=\"@{/layui/layui.js}\""));
+            assertFalse(template.contains("style=\"height: 260px;\""));
+            assertTrue(template.contains("post-submit"));
+        }
+    }
+
+    @Test
     void categoryLinksUseTheCategoryIdAcceptedByIndexController() throws IOException {
         String index = readTemplate("index.html");
 
