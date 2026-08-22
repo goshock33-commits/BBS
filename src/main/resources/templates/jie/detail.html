@@ -197,7 +197,7 @@
                         </div>
                         <div class="layui-form-item">
                             <input type="hidden" name="jid" value="123">
-                            <button class="layui-btn" lay-filter="*" lay-submit onclick="reply()">提交回复</button>
+                            <button class="layui-btn" lay-filter="*" lay-submit onclick="return reply()">提交回复</button>
                         </div>
                     </form>
                 </div>
@@ -255,6 +255,13 @@
         //评论
         window.reply = function (postId) {
             var $ = layui.$;
+            if (!postId) {
+                postId = $("#postId").val();
+            }
+            if (!postId) {
+                layer.alert('帖子参数错误!', {title: '提醒', skin: 'layui-layer-molv', icon: 2});
+                return false;
+            }
             var commentBody = $("#commentBody").val();
             if (isNull(commentBody)) {
                 layer.alert('请输入评论!', {title: '提醒', skin: 'layui-layer-molv', icon: 2});
