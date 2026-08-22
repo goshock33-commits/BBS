@@ -3,6 +3,7 @@
 ## Session
 
 - Date: 2026-08-14
+- Last updated: 2026-08-22
 - Goal: execute Phase 2 core forum implementation
 - Worktree: `.worktrees/phase1-baseline-security`
 - Branch: `phase1/baseline-security`
@@ -39,6 +40,8 @@
 - `a6daa11 feat: add administrator moderation APIs`
 - `3269d93 feat: add core forum and admin pages`
 - `3cc44bb fix: restore Phase 2 homepage rendering`
+- `d229bff fix: restore legacy upload csrf and category filters`
+- `9a70e8f fix: speed up post editor page loading`
 
 ## Implemented Behavior
 
@@ -60,6 +63,13 @@
   records.
 - Legacy page routes remain as compatibility bridges, with writes migrated to
   `/api/v1`.
+- Legacy wangEditor uploads send the CSRF header, preserving the existing
+  authenticated upload protection.
+- Legacy homepage category links now use the canonical `categoryId` query
+  parameter, so category filtering is applied correctly.
+- Post create/edit pages load wangEditor asynchronously, avoid duplicate
+  `layui.js` loading, and keep the publish area visible while the editor is
+  initializing.
 
 ## Review Fixes
 
@@ -78,15 +88,23 @@
 
 ## Windows Verification
 
-Fresh verification on 2026-08-14 after Task 7:
+Fresh verification on 2026-08-22 after the editor-page fixes:
 
-- Non-Docker Maven regression: 104 tests, 0 failures, 0 errors, 0 skipped;
+- Non-Docker Maven regression: 115 tests, 0 failures, 0 errors, 0 skipped;
   `BUILD SUCCESS`.
 - Compilation: `mvn.cmd -DskipTests compile` returned `BUILD SUCCESS`.
-- JavaScript syntax: `node --check src/main/resources/static/js/admin.js`
-  exited 0.
-- Patch checks: `git diff --check` and Task 7 staged diff check exited 0;
-  only Git LF/CRLF conversion warnings were printed.
+- Inline JavaScript in both post editor templates parsed successfully with
+  Node's `new Function` check.
+- Patch check: `git diff --check` exited 0; only Git LF/CRLF conversion
+  warnings were printed.
+
+## Browser Confirmation
+
+- The project owner manually confirmed that the post editor page now loads
+  correctly and the publish button is no longer obscured.
+- Automated browser-harness verification was unavailable because its daemon
+  was not reachable; the manual confirmation does not replace the complete
+  Task 8 browser-flow evidence below.
 
 ## Pending Linux And Browser Evidence
 
